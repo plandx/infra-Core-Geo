@@ -43,6 +43,17 @@ function str(v) {
 function ref(id) { return `#${id}`; }
 function refList(ids) { return `(${ids.map(ref).join(',')})`; }
 
+// DWG/CAD layer names must not contain < > / \ " : ; ? * | , = ` or control
+// chars; importers reject or mangle layers (and their colours) otherwise.
+export function sanitizeLayerName(name) {
+  const cleaned = String(name ?? '')
+    .replace(/[<>/\\":;?*|,=`]/g, '_')
+    .replace(/[\x00-\x1f]/g, '_')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return cleaned || 'Layer';
+}
+
 class StepWriter {
   constructor() {
     this._next = 1;
@@ -367,13 +378,17 @@ export function exportToIfc(boreholes, geologyById = new Map(), options = {}) {
   // the default grey "Layer 0". We group geometry items onto named layers
   // (one per geological unit + one for boreholes) and give each layer a colour
   // via IfcPresentationLayerWithStyle.
-  const layers = new Map(); // layerName -> { color, itemIds: [] }
+  // Keyed by sanitized layer name. The caller passes the *colour source*
+  // value as the name so colour and layer stay 1:1 (one colour per layer),
+  // regardless of which colour column is selected.
+  const layers = new Map(); // sanitizedName -> { color, itemIds: [] }
   function addToLayer(name, color, itemIds) {
     if (!itemIds?.length) return;
-    let layer = layers.get(name);
+    const key = sanitizeLayerName(name);
+    let layer = layers.get(key);
     if (!layer) {
       layer = { color, itemIds: [] };
-      layers.set(name, layer);
+      layers.set(key, layer);
     }
     layer.itemIds.push(...itemIds);
   }
@@ -474,8 +489,9 @@ export function exportToIfc(boreholes, geologyById = new Map(), options = {}) {
       // per unit; the geological label also remains in the stratum PropertySet.
       const geoLabel = iv.unit || iv.subUnit || iv.geologyCode || 'Stratum';
       const stratName = `${facilityName} - ${geoLabel}`;
-      // Put the interval geometry on a coloured CAD layer named after the unit.
-      addToLayer(geoLabel, color, stratItemIds);
+      // Layer = colour source: name it after the selected colour-column value
+      // (falls back to the geological unit) so that colour ↔ layer is 1:1.
+      addToLayer(colValue || geoLabel, color, stratItemIds);
       const stratTag = `${bh.id}@${iv.from}-${iv.to}`;
       const stratId = createIntervalElement(w, intervalIfcClass, {
         name: stratName,

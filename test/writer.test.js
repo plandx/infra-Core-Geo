@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { exportToIfc } from "../src/ifc/writer.js";
+import { exportToIfc, sanitizeLayerName } from "../src/ifc/writer.js";
 
 function sampleBorehole() {
   return {
@@ -47,4 +47,28 @@ test("contained elements inherit the parent facility name", () => {
   // Interval name = container prefix + geological unit (keeps layer/colour
   // differentiation in layer-by-name importers such as BricsCAD).
   assert.equal(nameOf(/IFCBUILDINGELEMENTPROXY\(/), "GW-BH-01 - Sand");
+});
+
+test("sanitizeLayerName strips characters invalid in CAD layer names", () => {
+  assert.equal(sanitizeLayerName("Sand, silty"), "Sand_ silty");
+  assert.equal(sanitizeLayerName("a/b:c*d|e"), "a_b_c_d_e");
+  assert.equal(sanitizeLayerName("  Clay  "), "Clay");
+  assert.equal(sanitizeLayerName(""), "Layer");
+});
+
+test("each colour-column value yields its own coloured layer (colour <-> layer 1:1)", () => {
+  const colorFiles = [{ columns: ["code"], colorMap: new Map([
+    ["RED", { r: 255, g: 0, b: 0, css: "rgb(255,0,0)" }],
+    ["BLUE", { r: 0, g: 0, b: 255, css: "rgb(0,0,255)" }]
+  ]) }];
+  const bh = sampleBorehole();
+  // Same geological unit, but two different colour-column values.
+  const geo = new Map([[bh.normalizedId, [
+    { from: 0, to: 5, thickness: 5, unit: "Sand", description: "", raw: { code: "RED" } },
+    { from: 5, to: 10, thickness: 5, unit: "Sand", description: "", raw: { code: "BLUE" } }
+  ]]]);
+  const step = exportToIfc([bh], geo, { diameter: 0.2, colorColumn: "code", colorFiles });
+  const layers = [...step.matchAll(/IFCPRESENTATIONLAYERWITHSTYLE\('([^']*)'/g)].map((m) => m[1]);
+  assert.ok(layers.includes("RED"), "distinct layer for colour value RED");
+  assert.ok(layers.includes("BLUE"), "distinct layer for colour value BLUE");
 });
