@@ -363,8 +363,11 @@ export function exportToIfc(boreholes, geologyById = new Map(), options = {}) {
     const collarPt = pt3(w, bh.collar.x - refX, bh.collar.y - refY, bh.collar.z - refZ);
     const collarAx = ax3(w, collarPt, null, null);
     const facilityPl = localPlace(w, collarAx, sitePl);
+    // Name of the parent spatial container; every contained IfcElement
+    // (borehole + intervals) inherits this as its own Name.
+    const facilityName = `${facilityPrefix}${bh.id}`;
     const facilityId = createFacilityElement(w, {
-      name: `${facilityPrefix}${bh.id}`,
+      name: facilityName,
       description: `Facility for borehole ${bh.id}`,
       placementId: facilityPl
     });
@@ -385,7 +388,7 @@ export function exportToIfc(boreholes, geologyById = new Map(), options = {}) {
     }
 
     const bhId = createBoreholeElement(w, boreholeIfcClass, {
-      name: bh.id,
+      name: facilityName,
       description: bh.className || '',
       placementId: bhPl,
       shapeRef: bhShapeRef,
@@ -442,10 +445,12 @@ export function exportToIfc(boreholes, geologyById = new Map(), options = {}) {
       const stratReprIds = buildGeomReprs(w, axisCtx, bodyCtx, segPtIds, color, radius);
       const stratShape = prodShape(w, stratReprIds);
 
-      const stratName = iv.unit || iv.subUnit || iv.geologyCode || 'Stratum';
+      // Geological label stays available via the stratum PropertySet
+      // (GeolUnit / GeolSubUnit / GeologyCode); the element Name itself
+      // inherits the parent container (facility) name.
       const stratTag = `${bh.id}@${iv.from}-${iv.to}`;
       const stratId = createIntervalElement(w, intervalIfcClass, {
-        name: stratName,
+        name: facilityName,
         description: iv.description || '',
         placementId: stratPl,
         shapeId: stratShape,
