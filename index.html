@@ -1,0 +1,1086 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>InfraCore GEO — Borehole Viewer</title>
+    <link rel="stylesheet" href="./src/styles.css" />
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.167.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.167.0/examples/jsm/"
+      }
+    }
+    </script>
+  </head>
+  <body>
+    <!-- Sidebar Toggle (mobile) -->
+    <button class="sidebar-toggle" id="sidebar-toggle" aria-label="Seitenleiste öffnen/schließen" aria-expanded="false">
+      <svg viewBox="0 0 16 16" fill="none"><path d="M2 4H14M2 8H14M2 12H14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    </button>
+
+    <!-- Canvas Tooltip -->
+    <div class="canvas-tooltip" id="canvas-tooltip" role="tooltip" aria-live="polite"></div>
+
+    <div class="shell">
+      <!-- Sidebar Backdrop (mobile) -->
+      <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+      <!-- ===== SIDEBAR ===== -->
+      <aside class="sidebar" aria-label="Navigation und Daten">
+
+        <div class="sidebar-brand">
+          <svg class="brand-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M16 3 L28 9.5 L28 22.5 L16 29 L4 22.5 L4 9.5 Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+            <circle cx="16" cy="16" r="4" stroke="currentColor" stroke-width="2"/>
+            <line x1="16" y1="12" x2="16" y2="3" stroke="currentColor" stroke-width="1.5"/>
+          </svg>
+          <div class="brand-text">
+            <div class="brand-name">InfraCore GEO</div>
+            <div class="brand-sub">Borehole Viewer</div>
+          </div>
+        </div>
+
+        <nav class="sidebar-nav" aria-label="Workflow">
+          <div class="nav-group-label">Workflow</div>
+          <ul class="nav-list" role="tablist">
+
+            <li class="nav-item is-active" data-tab="import" role="tab" tabindex="0" aria-selected="true">
+              <span class="nav-step-wrap">
+                <span class="nav-step-num">1</span>
+                <!-- done checkmark -->
+                <svg class="nav-step-check" viewBox="0 0 16 16" fill="none"><path d="M3 8L6.5 11.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </span>
+              <span class="nav-label">Import</span>
+              <span class="nav-dot" id="dot-import"></span>
+            </li>
+
+            <li class="nav-item" data-tab="collar" role="tab" tabindex="0" aria-selected="false">
+              <span class="nav-step-wrap">
+                <span class="nav-step-num">2</span>
+                <svg class="nav-step-check" viewBox="0 0 16 16" fill="none"><path d="M3 8L6.5 11.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </span>
+              <span class="nav-label">Collar</span>
+              <span class="nav-dot" id="dot-collar"></span>
+            </li>
+
+            <li class="nav-item" data-tab="survey" role="tab" tabindex="0" aria-selected="false">
+              <span class="nav-step-wrap">
+                <span class="nav-step-num">3</span>
+                <svg class="nav-step-check" viewBox="0 0 16 16" fill="none"><path d="M3 8L6.5 11.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </span>
+              <span class="nav-label">Survey</span>
+              <span class="nav-dot" id="dot-survey"></span>
+            </li>
+
+            <li class="nav-item" data-tab="interval" role="tab" tabindex="0" aria-selected="false">
+              <span class="nav-step-wrap">
+                <span class="nav-step-num">4</span>
+                <svg class="nav-step-check" viewBox="0 0 16 16" fill="none"><path d="M3 8L6.5 11.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </span>
+              <span class="nav-label">Intervall</span>
+              <span class="nav-dot" id="dot-interval"></span>
+            </li>
+
+            <li class="nav-item" data-tab="attributes" role="tab" tabindex="0" aria-selected="false">
+              <span class="nav-step-wrap">
+                <span class="nav-step-num">5</span>
+                <svg class="nav-step-check" viewBox="0 0 16 16" fill="none"><path d="M3 8L6.5 11.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </span>
+              <span class="nav-label">Attribute</span>
+              <span class="nav-dot" id="dot-attributes"></span>
+            </li>
+
+            <li class="nav-item" data-tab="filter" role="tab" tabindex="0" aria-selected="false" data-blocked-reason="Collar laden, dann Filter nutzen">
+              <span class="nav-step-wrap">
+                <span class="nav-step-num">6</span>
+                <svg class="nav-step-check" viewBox="0 0 16 16" fill="none"><path d="M3 8L6.5 11.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </span>
+              <span class="nav-label">Filter</span>
+              <span class="nav-dot" id="dot-filter"></span>
+            </li>
+
+            <li class="nav-item" data-tab="map" role="tab" tabindex="0" aria-selected="false" data-blocked-reason="Zuerst Collar-Daten laden">
+              <span class="nav-step-wrap">
+                <span class="nav-step-num">7</span>
+                <svg class="nav-step-check" viewBox="0 0 16 16" fill="none"><path d="M3 8L6.5 11.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </span>
+              <span class="nav-label">Karte</span>
+              <span class="nav-dot" id="dot-map"></span>
+            </li>
+
+            <li class="nav-item" data-tab="detail" role="tab" tabindex="0" aria-selected="false" data-blocked-reason="Bohrung in der Karte auswählen">
+              <span class="nav-step-wrap">
+                <span class="nav-step-num">8</span>
+                <svg class="nav-step-check" viewBox="0 0 16 16" fill="none"><path d="M3 8L6.5 11.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </span>
+              <span class="nav-label">Bohrung</span>
+              <span class="nav-dot" id="dot-detail"></span>
+            </li>
+
+            <li class="nav-item" data-tab="export" role="tab" tabindex="0" aria-selected="false" data-blocked-reason="Collar-Daten erforderlich">
+              <span class="nav-step-wrap">
+                <span class="nav-step-num">9</span>
+                <svg class="nav-step-check" viewBox="0 0 16 16" fill="none"><path d="M3 8L6.5 11.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </span>
+              <span class="nav-label">Export</span>
+              <span class="nav-dot" id="dot-export"></span>
+            </li>
+
+          </ul>
+        </nav>
+
+        <div class="sidebar-sep"></div>
+
+        <div class="sidebar-section">
+          <div class="section-label">Bohrung auswählen</div>
+          <div class="search-wrap">
+            <svg class="search-icon" viewBox="0 0 16 16" fill="none">
+              <circle cx="6.5" cy="6.5" r="4" stroke="currentColor" stroke-width="1.5"/>
+              <line x1="9.5" y1="9.5" x2="13" y2="13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            <input type="search" id="search-input" placeholder="BHID suchen..." autocomplete="off" />
+          </div>
+          <div class="bh-list" id="borehole-list" role="listbox" aria-label="Bohrungsliste">
+            <div class="bh-empty">Keine Daten geladen</div>
+          </div>
+        </div>
+
+        <div class="sidebar-section sidebar-stats">
+          <div class="section-label">Datensatz</div>
+          <dl id="dataset-stats" class="stat-list"></dl>
+        </div>
+
+        <div class="sidebar-footer">
+          <div class="status-dot" id="status-dot"></div>
+          <span id="status-text">Bereit</span>
+        </div>
+
+      </aside>
+
+      <!-- ===== MAIN CONTENT ===== -->
+      <main class="content">
+
+        <!-- ── IMPORT ── -->
+        <section class="panel is-active" data-panel="import">
+          <div class="panel-header">
+            <div class="panel-title-group">
+              <h2 class="panel-title">Datei Import</h2>
+              <p class="panel-desc">Lade die Eingangsdaten für den Borehole-Workflow. Geladene Daten werden im Browser zwischengespeichert.</p>
+            </div>
+          </div>
+
+          <div class="import-body">
+            <div class="import-grid">
+
+              <div class="import-card" id="card-collar">
+                <div class="card-icon card-icon--blue">
+                  <svg viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="10" r="4" stroke="currentColor" stroke-width="2"/>
+                    <path d="M12 14C7 14 4 17 4 17H20C20 17 17 14 12 14Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                  </svg>
+                </div>
+                <div class="card-info">
+                  <div class="card-name">Collar</div>
+                  <div class="card-desc-text">Bohransatzpunkte mit Koordinaten, Höhenlage und Endtiefe.</div>
+                  <div class="card-source" id="collar-source"></div>
+                </div>
+                <div class="card-right">
+                  <span class="status-badge status-none" id="collar-badge">Nicht geladen</span>
+                  <label class="btn btn-secondary btn-sm">
+                    Laden
+                    <input type="file" id="collar-file" accept=".csv" hidden aria-label="Collar CSV-Datei laden" />
+                  </label>
+                </div>
+              </div>
+
+              <div class="import-card" id="card-survey">
+                <div class="card-icon card-icon--teal">
+                  <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M3 6L7 13L11 7L15 15L21 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <line x1="3" y1="20" x2="21" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  </svg>
+                </div>
+                <div class="card-info">
+                  <div class="card-name">Survey</div>
+                  <div class="card-desc-text">Messpunkte mit Tiefe, Einfallswinkel und Azimut.</div>
+                  <div class="card-source" id="survey-source"></div>
+                </div>
+                <div class="card-right">
+                  <span class="status-badge status-none" id="survey-badge">Nicht geladen</span>
+                  <label class="btn btn-secondary btn-sm">
+                    Laden
+                    <input type="file" id="survey-file" accept=".csv" hidden aria-label="Survey CSV-Datei laden" />
+                  </label>
+                </div>
+              </div>
+
+              <div class="import-card" id="card-geology">
+                <div class="card-icon card-icon--amber">
+                  <svg viewBox="0 0 24 24" fill="none">
+                    <rect x="3" y="4" width="18" height="4" rx="1.5" stroke="currentColor" stroke-width="2"/>
+                    <rect x="3" y="10" width="18" height="4" rx="1.5" stroke="currentColor" stroke-width="2"/>
+                    <rect x="3" y="16" width="18" height="4" rx="1.5" stroke="currentColor" stroke-width="2"/>
+                  </svg>
+                </div>
+                <div class="card-info">
+                  <div class="card-name">Intervalltabelle</div>
+                  <div class="card-desc-text">Schichtintervalle mit geologischen Einheiten und Beschreibungen.</div>
+                  <div class="card-source" id="geology-source"></div>
+                </div>
+                <div class="card-right">
+                  <span class="status-badge status-none" id="geology-badge">Nicht geladen</span>
+                  <label class="btn btn-secondary btn-sm">
+                    Laden
+                    <input type="file" id="geology-file" accept=".csv" hidden aria-label="Intervall CSV-Datei laden" />
+                  </label>
+                </div>
+              </div>
+
+              <div class="import-card import-card--colors" id="card-colors">
+                <div class="card-icon card-icon--purple">
+                  <svg viewBox="0 0 24 24" fill="none">
+                    <circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="2"/>
+                    <circle cx="16" cy="8" r="3" stroke="currentColor" stroke-width="2"/>
+                    <circle cx="12" cy="16" r="3" stroke="currentColor" stroke-width="2"/>
+                    <path d="M11 8.5C11 8.5 9.5 12 12 14C14.5 12 13 8.5 13 8.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                  </svg>
+                </div>
+                <div class="card-info">
+                  <div class="card-name-row">
+                    <div class="card-name">Color Files</div>
+                    <span class="status-badge status-none" id="colors-badge">0 Dateien</span>
+                  </div>
+                  <div class="card-desc-text">Leapfrog Farbpaletten (.lfc) für beliebige Intervall-Spalten. Mehrere Dateien möglich.</div>
+                  <div class="color-files-list" id="color-files-list">
+                    <div class="color-files-empty">Keine Farb-Dateien geladen</div>
+                  </div>
+                </div>
+                <div class="card-right-slim">
+                  <label class="btn btn-secondary btn-sm">
+                    Laden
+                    <input type="file" id="colors-file" accept=".lfc,.xml" hidden />
+                  </label>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Geology/Interval Column Mapping (shown after file upload) -->
+            <div id="geology-mapping-section" class="mapping-section" hidden>
+              <div class="mapping-header">
+                <div class="mapping-title-row">
+                  <svg viewBox="0 0 16 16" fill="none" width="16" height="16">
+                    <path d="M2 4H14M2 8H10M2 12H12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    <path d="M12 10L14 12L12 14" stroke="#9D5D00" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  <span class="mapping-title">Spaltenzuweisung — Intervalltabelle</span>
+                  <span class="mapping-file-badge" id="geology-mapping-filename"></span>
+                </div>
+              </div>
+
+              <div class="mapping-delimiter-row">
+                <label class="mapping-label" for="gmap-delimiter">Trennzeichen</label>
+                <select id="gmap-delimiter" class="mapping-select mapping-select--inline">
+                  <option value="auto">Auto-Erkennung</option>
+                  <option value=";">Semikolon ( ; )</option>
+                  <option value=",">Komma ( , )</option>
+                  <option value="tab">Tabulator</option>
+                  <option value="|">Pipe ( | )</option>
+                </select>
+                <label class="mapping-label" for="gmap-header-row">Überschrift in Zeile</label>
+                <input id="gmap-header-row" class="mapping-select mapping-select--inline" type="number" min="1" step="1" value="1" />
+                <div class="mapping-raw-preview-wrap">
+                  <span class="mapping-label" style="white-space:nowrap">Header-Zeile:</span>
+                  <code id="geology-raw-preview" class="mapping-raw-preview"></code>
+                </div>
+              </div>
+
+              <div class="mapping-subtitle" style="margin-top:2px">
+                Erkannte Spalten: <span id="geology-mapping-cols" class="mapping-cols-list"></span>
+              </div>
+
+              <div class="mapping-fields">
+                <div class="mapping-row">
+                  <label class="mapping-label" for="gmap-bhid">
+                    <span class="mapping-required">*</span> Bohrung-ID
+                  </label>
+                  <select id="gmap-bhid" class="mapping-select"></select>
+                </div>
+                <div class="mapping-row">
+                  <label class="mapping-label" for="gmap-from">
+                    <span class="mapping-required">*</span> Tiefe Von
+                  </label>
+                  <select id="gmap-from" class="mapping-select"></select>
+                </div>
+                <div class="mapping-row">
+                  <label class="mapping-label" for="gmap-to">
+                    <span class="mapping-required">*</span> Tiefe Bis
+                  </label>
+                  <select id="gmap-to" class="mapping-select"></select>
+                </div>
+              </div>
+
+              <div class="mapping-footer">
+                <span class="mapping-preview" id="geology-mapping-preview"></span>
+                <div class="mapping-actions">
+                  <button id="geology-mapping-dismiss" class="btn btn-ghost btn-sm">Ausblenden</button>
+                  <button id="geology-mapping-apply" class="btn btn-primary btn-sm">
+                    <svg viewBox="0 0 16 16" fill="none" width="14" height="14">
+                      <path d="M3 8L6.5 11.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Übernehmen
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Survey Column Mapping (shown after file upload) -->
+            <div id="survey-mapping-section" class="mapping-section" hidden>
+              <div class="mapping-header">
+                <div class="mapping-title-row">
+                  <svg viewBox="0 0 16 16" fill="none" width="16" height="16">
+                    <path d="M2 4H14M2 8H10M2 12H12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    <path d="M12 10L14 12L12 14" stroke="#038387" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  <span class="mapping-title">Spaltenzuweisung — Survey</span>
+                  <span class="mapping-file-badge" id="survey-mapping-filename"></span>
+                </div>
+                <div class="mapping-delimiter-row">
+                  <label class="mapping-label" for="smapcfg-delimiter">Trennzeichen</label>
+                  <select id="smapcfg-delimiter" class="mapping-select mapping-select--inline">
+                    <option value="auto">Auto-Erkennung</option>
+                    <option value=";">Semikolon ( ; )</option>
+                    <option value=",">Komma ( , )</option>
+                    <option value="tab">Tabulator</option>
+                    <option value="|">Pipe ( | )</option>
+                  </select>
+                  <label class="mapping-label" for="smapcfg-header-row">Überschrift in Zeile</label>
+                  <input id="smapcfg-header-row" class="mapping-select mapping-select--inline" type="number" min="1" step="1" value="1" />
+                  <div class="mapping-raw-preview-wrap">
+                    <span class="mapping-label" style="white-space:nowrap">Header-Zeile:</span>
+                    <code id="smapcfg-raw-preview" class="mapping-raw-preview"></code>
+                  </div>
+                </div>
+                <div class="mapping-subtitle">
+                  Erkannte Spalten: <span id="survey-mapping-cols" class="mapping-cols-list"></span>
+                </div>
+              </div>
+
+              <div class="mapping-fields">
+                <div class="mapping-row">
+                  <label class="mapping-label" for="smap-bhid">
+                    <span class="mapping-required">*</span> Bohrung-ID
+                  </label>
+                  <select id="smap-bhid" class="mapping-select"></select>
+                </div>
+                <div class="mapping-row">
+                  <label class="mapping-label" for="smap-at">
+                    <span class="mapping-required">*</span> Teufe / MD
+                  </label>
+                  <select id="smap-at" class="mapping-select"></select>
+                </div>
+                <div class="mapping-row">
+                  <label class="mapping-label" for="smap-dip">
+                    Einfallswinkel (Dip)
+                  </label>
+                  <select id="smap-dip" class="mapping-select"></select>
+                </div>
+                <div class="mapping-row">
+                  <label class="mapping-label" for="smap-az">
+                    Azimut
+                  </label>
+                  <select id="smap-az" class="mapping-select"></select>
+                </div>
+              </div>
+
+              <div class="mapping-footer">
+                <span class="mapping-preview" id="survey-mapping-preview"></span>
+                <div class="mapping-actions">
+                  <button id="survey-mapping-dismiss" class="btn btn-ghost btn-sm">Ausblenden</button>
+                  <button id="survey-mapping-apply" class="btn btn-primary btn-sm">
+                    <svg viewBox="0 0 16 16" fill="none" width="14" height="14">
+                      <path d="M3 8L6.5 11.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Übernehmen
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Collar Column Mapping (shown after file upload) -->
+            <div id="collar-mapping-section" class="mapping-section" hidden>
+              <div class="mapping-header">
+                <div class="mapping-title-row">
+                  <svg viewBox="0 0 16 16" fill="none" width="16" height="16">
+                    <path d="M2 4H14M2 8H10M2 12H12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    <path d="M12 10L14 12L12 14" stroke="#0078D4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  <span class="mapping-title">Spaltenzuweisung — Collar</span>
+                  <span class="mapping-file-badge" id="collar-mapping-filename"></span>
+                </div>
+                <div class="mapping-delimiter-row">
+                  <label class="mapping-label" for="cmap-delimiter">Trennzeichen</label>
+                  <select id="cmap-delimiter" class="mapping-select mapping-select--inline">
+                    <option value="auto">Auto-Erkennung</option>
+                    <option value=";">Semikolon ( ; )</option>
+                    <option value=",">Komma ( , )</option>
+                    <option value="tab">Tabulator</option>
+                    <option value="|">Pipe ( | )</option>
+                  </select>
+                  <label class="mapping-label" for="cmap-header-row">Überschrift in Zeile</label>
+                  <input id="cmap-header-row" class="mapping-select mapping-select--inline" type="number" min="1" step="1" value="1" />
+                  <div class="mapping-raw-preview-wrap">
+                    <span class="mapping-label" style="white-space:nowrap">Header-Zeile:</span>
+                    <code id="cmap-raw-preview" class="mapping-raw-preview"></code>
+                  </div>
+                </div>
+                <div class="mapping-subtitle">
+                  Erkannte Spalten: <span id="collar-mapping-cols" class="mapping-cols-list"></span>
+                </div>
+              </div>
+
+              <div class="mapping-fields">
+                <div class="mapping-row">
+                  <label class="mapping-label" for="map-bhid">
+                    <span class="mapping-required">*</span> Bohrung-ID
+                  </label>
+                  <select id="map-bhid" class="mapping-select"></select>
+                </div>
+                <div class="mapping-row">
+                  <label class="mapping-label" for="map-x">
+                    <span class="mapping-required">*</span> X-Koordinate
+                  </label>
+                  <select id="map-x" class="mapping-select"></select>
+                </div>
+                <div class="mapping-row">
+                  <label class="mapping-label" for="map-y">
+                    <span class="mapping-required">*</span> Y-Koordinate
+                  </label>
+                  <select id="map-y" class="mapping-select"></select>
+                </div>
+                <div class="mapping-row">
+                  <label class="mapping-label" for="map-z">
+                    Z-Höhe
+                  </label>
+                  <select id="map-z" class="mapping-select"></select>
+                </div>
+                <div class="mapping-row">
+                  <label class="mapping-label" for="map-depth">
+                    <span class="mapping-required">*</span> Endtiefe
+                  </label>
+                  <select id="map-depth" class="mapping-select"></select>
+                </div>
+                <div class="mapping-row">
+                  <label class="mapping-label" for="map-class">
+                    Klasse
+                  </label>
+                  <select id="map-class" class="mapping-select"></select>
+                </div>
+              </div>
+
+              <div class="mapping-footer">
+                <span class="mapping-preview" id="collar-mapping-preview"></span>
+                <div class="mapping-actions">
+                  <button id="collar-mapping-dismiss" class="btn btn-ghost btn-sm">Ausblenden</button>
+                  <button id="collar-mapping-apply" class="btn btn-primary btn-sm">
+                    <svg viewBox="0 0 16 16" fill="none" width="14" height="14">
+                      <path d="M3 8L6.5 11.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Übernehmen
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Color File Column Mapping -->
+            <div id="colors-mapping-section" class="mapping-section" hidden>
+              <div class="mapping-header">
+                <div class="mapping-title-row">
+                  <svg viewBox="0 0 16 16" fill="none" width="16" height="16">
+                    <circle cx="5" cy="5" r="2.5" stroke="#7B2EBE" stroke-width="1.5"/>
+                    <circle cx="11" cy="5" r="2.5" stroke="#7B2EBE" stroke-width="1.5"/>
+                    <circle cx="8" cy="11" r="2.5" stroke="#7B2EBE" stroke-width="1.5"/>
+                  </svg>
+                  <span class="mapping-title">Farbzuweisung</span>
+                  <span class="mapping-file-badge" id="colors-mapping-filename"></span>
+                  <span class="meta-badge" id="colors-mapping-count"></span>
+                </div>
+                <div class="colors-swatches-row" id="colors-swatches"></div>
+              </div>
+
+              <div class="mapping-subtitle">
+                Auf welche Spalte(n) der Intervalltabelle bezieht sich diese Datei?
+                Spalten mit erkannten Treffern sind automatisch markiert.
+              </div>
+
+              <div class="color-col-checks" id="color-col-checks">
+                <div class="log-empty">Bitte zuerst eine Intervalltabelle laden.</div>
+              </div>
+
+              <div class="mapping-footer">
+                <span class="mapping-preview" id="colors-mapping-preview"></span>
+                <div class="mapping-actions">
+                  <button id="colors-mapping-dismiss" class="btn btn-ghost btn-sm">Ausblenden</button>
+                  <button id="colors-mapping-apply" class="btn btn-primary btn-sm">
+                    <svg viewBox="0 0 16 16" fill="none" width="14" height="14">
+                      <path d="M3 8L6.5 11.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Hinzufügen
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="import-actions">
+              <button id="load-defaults" class="btn btn-primary">
+                <svg viewBox="0 0 16 16" fill="none" width="16" height="16">
+                  <path d="M2 10V13H14V10M8 2V10M5 7L8 10L11 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Standarddateien laden
+              </button>
+              <button id="save-project-sqlite" class="btn btn-secondary">
+                <svg viewBox="0 0 16 16" fill="none" width="16" height="16">
+                  <path d="M3 3H11L13 5V13H3V3Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+                  <path d="M5 3V6H10V3M5 10H11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+                Projekt speichern
+              </button>
+              <button id="open-project-sqlite" class="btn btn-secondary">
+                <svg viewBox="0 0 16 16" fill="none" width="16" height="16">
+                  <path d="M2 13H14V5H8L6.5 3H2V13Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+                  <path d="M8 7V11M6 9H10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+                Projekt öffnen
+              </button>
+              <button id="clear-data" class="btn btn-ghost">
+                <svg viewBox="0 0 16 16" fill="none" width="16" height="16">
+                  <path d="M3 4H13M5 4V2H11V4M6 7V12M10 7V12M4 4L5 14H11L12 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Daten zurücksetzen
+              </button>
+            </div>
+
+            <div class="overview-section" id="overview-section" hidden>
+              <div class="section-label" style="margin-bottom: 12px;">Übersicht geladene Daten</div>
+              <div class="overview-kpis" id="overview-kpis"></div>
+              <div class="overview-quality" id="overview-quality"></div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ── COLLAR ── -->
+        <section class="panel" data-panel="collar">
+          <div class="panel-header">
+            <div class="panel-title-group">
+              <h2 class="panel-title">Collar Daten</h2>
+              <p class="panel-desc">Bohransatzpunkte mit Koordinaten, Höhenlage und Endtiefe.</p>
+            </div>
+            <div class="panel-meta">
+              <span id="collar-row-count" class="meta-badge">0 Zeilen</span>
+              <span id="collar-visible-count" class="meta-badge meta-badge--muted">0 sichtbar</span>
+            </div>
+          </div>
+          <div class="table-toolbar">
+            <div class="search-wrap">
+              <svg class="search-icon" viewBox="0 0 16 16" fill="none">
+                <circle cx="6.5" cy="6.5" r="4" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="9.5" y1="9.5" x2="13" y2="13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+              <input type="search" id="collar-filter" placeholder="Spalten filtern..." autocomplete="off" />
+            </div>
+            <label class="toggle-label">
+              <input type="checkbox" id="collar-show-all" checked />
+              Alle Bohrungen anzeigen
+            </label>
+          </div>
+          <div class="table-wrap">
+            <table id="collar-table"></table>
+          </div>
+        </section>
+
+        <!-- ── SURVEY ── -->
+        <section class="panel" data-panel="survey">
+          <div class="panel-header">
+            <div class="panel-title-group">
+              <h2 class="panel-title">Survey Daten</h2>
+              <p class="panel-desc">Messpunkte mit Tiefe, Einfallswinkel und Azimut pro Bohrung.</p>
+            </div>
+            <div class="panel-meta">
+              <span id="survey-row-count" class="meta-badge">0 Zeilen</span>
+              <span id="survey-visible-count" class="meta-badge meta-badge--muted">0 sichtbar</span>
+            </div>
+          </div>
+          <div class="table-toolbar">
+            <div class="search-wrap">
+              <svg class="search-icon" viewBox="0 0 16 16" fill="none">
+                <circle cx="6.5" cy="6.5" r="4" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="9.5" y1="9.5" x2="13" y2="13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+              <input type="search" id="survey-filter" placeholder="Spalten filtern..." autocomplete="off" />
+            </div>
+            <label class="toggle-label">
+              <input type="checkbox" id="survey-show-all" checked />
+              Alle Bohrungen anzeigen
+            </label>
+          </div>
+          <div class="table-wrap">
+            <table id="survey-table"></table>
+          </div>
+        </section>
+
+        <!-- ── INTERVAL ── -->
+        <section class="panel" data-panel="interval">
+          <div class="panel-header">
+            <div class="panel-title-group">
+              <h2 class="panel-title">Intervalltabelle</h2>
+              <p class="panel-desc">Intervallbasierte Daten pro Bohrung mit Tiefenbereich und beliebigen Attributen.</p>
+            </div>
+            <div class="panel-meta">
+              <span id="geology-row-count" class="meta-badge">0 Zeilen</span>
+              <span id="geology-visible-count" class="meta-badge meta-badge--muted">0 sichtbar</span>
+            </div>
+          </div>
+          <div class="table-toolbar">
+            <div class="search-wrap">
+              <svg class="search-icon" viewBox="0 0 16 16" fill="none">
+                <circle cx="6.5" cy="6.5" r="4" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="9.5" y1="9.5" x2="13" y2="13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+              <input type="search" id="geology-filter" placeholder="Spalten filtern..." autocomplete="off" />
+            </div>
+            <label class="toggle-label">
+              <input type="checkbox" id="geology-show-all" checked />
+              Alle Bohrungen anzeigen
+            </label>
+          </div>
+          <div class="table-wrap">
+            <table id="geology-table"></table>
+          </div>
+        </section>
+
+        <!-- ── FILTER ── -->
+        <section class="panel" data-panel="attributes">
+          <div class="panel-header">
+            <div class="panel-title-group">
+              <h2 class="panel-title">Attribute Mapping</h2>
+              <p class="panel-desc">Importierte Spalten auf IFC-PropertySets mappen. Collar und Survey werden an Bohrungen geschrieben, Intervall-Spalten an exportierte Intervalle.</p>
+            </div>
+            <div class="panel-meta">
+              <span id="attribute-row-count" class="meta-badge">0 Mappings</span>
+              <span id="attribute-enabled-count" class="meta-badge meta-badge--muted">0 aktiv</span>
+            </div>
+          </div>
+
+          <div class="ifc-import-hint" style="margin-bottom:12px">
+            Alle importierten Spalten aus <strong>Collar</strong>, <strong>Survey</strong> und <strong>Intervall</strong> koennen hier fuer den IFC-Export als zusaetzliche PropertySets aktiviert und umbenannt werden.
+          </div>
+
+          <div class="table-wrap">
+            <table id="attribute-table"></table>
+          </div>
+        </section>
+
+        <section class="panel" data-panel="filter">
+          <div class="panel-header">
+            <div class="panel-title-group">
+              <h2 class="panel-title">Erweiterte Filterung</h2>
+              <p class="panel-desc">Mehrstufige Filterbedingungen für die Bohrlochauswahl — synchronisiert wird erst nach Klick auf Vorschau.</p>
+            </div>
+            <div class="panel-meta">
+              <span id="filter-match-count" class="meta-badge">— Bohrungen</span>
+              <span id="filter-active-badge" class="meta-badge meta-badge--muted" hidden>Filter aktiv</span>
+            </div>
+          </div>
+
+          <div class="filter-body">
+
+            <!-- Builder -->
+            <div class="filter-builder">
+              <div class="filter-builder-head">
+                <span class="filter-builder-title">Filterbedingungen</span>
+                <div class="filter-builder-btns">
+                  <button id="filter-add-btn" class="btn btn-secondary btn-sm">
+                    <svg viewBox="0 0 16 16" fill="none" width="13" height="13">
+                      <line x1="8" y1="2" x2="8" y2="14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                      <line x1="2" y1="8" x2="14" y2="8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                    Bedingung
+                  </button>
+                  <button id="filter-reset-btn" class="btn btn-ghost btn-sm">Alle löschen</button>
+                </div>
+              </div>
+
+              <div id="filter-conditions" class="filter-conditions">
+                <div class="filter-hint">
+                  Klicke <strong>+ Bedingung</strong> um einen Filter hinzuzufügen.<br>
+                  Mehrere Bedingungen werden mit <strong>UND / ODER</strong> verknüpft.
+                </div>
+              </div>
+            </div>
+
+            <!-- Apply -->
+            <div class="filter-apply-row">
+              <div class="filter-preview-msg" id="filter-preview-msg"></div>
+              <div class="filter-apply-btns">
+                <button id="filter-apply-btn" class="btn btn-primary">
+                  <svg viewBox="0 0 16 16" fill="none" width="14" height="14">
+                    <path d="M2 3H14L9.5 8.5V13L6.5 11.5V8.5L2 3Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+                  </svg>
+                  Vorschau
+                </button>
+                <button id="filter-deactivate-btn" class="btn btn-ghost btn-sm" hidden>Filter deaktivieren</button>
+              </div>
+            </div>
+
+            <!-- Result -->
+            <div class="filter-result">
+              <div class="filter-result-head">
+                <span class="filter-result-title">Vorschau Ergebnis</span>
+                <span id="filter-result-count" class="meta-badge meta-badge--muted">—</span>
+              </div>
+              <div id="filter-result-list" class="filter-result-list">
+                <div class="filter-hint">Filtervorschau erscheint hier.</div>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ── KARTE ── -->
+        <section class="panel" data-panel="map">
+          <div class="viewer-toolbar">
+            <div class="vtb-group">
+              <div class="btn-group" role="group" aria-label="Werkzeuge">
+                <button class="tool-btn is-active" data-tool="select" type="button" title="Auswahl">
+                  <svg viewBox="0 0 16 16" fill="none" width="14" height="14">
+                    <path d="M3 2L3 13L6.5 10L8.5 14L10 13.5L8 9.5H12L3 2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+                  </svg>
+                  Auswahl
+                </button>
+                <button class="tool-btn" data-tool="measure" type="button" title="Messen">
+                  <svg viewBox="0 0 16 16" fill="none" width="14" height="14">
+                    <line x1="2" y1="14" x2="14" y2="2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    <line x1="2" y1="14" x2="2" y2="11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    <line x1="2" y1="14" x2="5" y2="14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                  </svg>
+                  Messen
+                </button>
+                <button class="tool-btn" data-tool="fit" type="button" title="Einpassen">
+                  <svg viewBox="0 0 16 16" fill="none" width="14" height="14">
+                    <rect x="3" y="3" width="10" height="10" rx="1" stroke="currentColor" stroke-width="1.5"/>
+                    <path d="M6 6L8 8L10 6M8 8V5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  Einpassen
+                </button>
+              </div>
+            </div>
+
+            <div class="vtb-group">
+              <div class="btn-group" role="group" aria-label="Ansicht">
+                <button class="mode-btn is-active" data-mode="plan" type="button">Planansicht</button>
+                <button class="mode-btn" data-mode="3d" type="button">3D WebGL</button>
+              </div>
+            </div>
+
+            <div class="vtb-group vtb-toggles">
+              <label class="toggle-label"><input type="checkbox" id="show-labels" checked /> Labels</label>
+              <label class="toggle-label"><input type="checkbox" id="show-grid" checked /> Raster</label>
+              <label class="toggle-label"><input type="checkbox" id="show-all" checked /> Alle zeigen</label>
+            </div>
+
+            <div class="vtb-group vtb-3d-control" id="vtb-3d-opts" hidden>
+              <div class="vtb-3d-field">
+                <label class="mapping-label" for="viewer-3d-col">Farbspalte</label>
+                <select id="viewer-3d-col" class="mapping-select mapping-select--inline">
+                  <option value="">— keine —</option>
+                </select>
+              </div>
+              <div class="vtb-3d-field">
+                <label class="mapping-label" for="viewer-3d-diameter">Durchmesser (m)</label>
+                <input type="number" id="viewer-3d-diameter"
+                       class="mapping-select mapping-select--inline"
+                       min="0" max="200" step="0.5" value="1" />
+              </div>
+            </div>
+
+            <div class="vtb-readout">
+              <span id="viewer-hint" class="readout-hint">Mausrad: Zoom · Ziehen: Pan · Klick: Auswahl</span>
+              <span id="viewer-measurement" class="readout-measure"></span>
+            </div>
+          </div>
+
+          <div class="canvas-wrap">
+            <canvas id="viewer-canvas" aria-label="Bohrungsübersicht Karte"></canvas>
+            <canvas id="viewer-canvas-3d" class="canvas-3d" hidden aria-label="3D WebGL Viewer"></canvas>
+            <div id="viewer-3d-loading" class="canvas-3d-msg" hidden>Three.js wird geladen…</div>
+            <div id="viewer-3d-error"   class="canvas-3d-msg canvas-3d-msg--error" hidden></div>
+
+            <!-- Zoom/Pan Hinweise -->
+            <div class="canvas-hint-overlay" id="canvas-hint-overlay" aria-hidden="true">
+              <span class="canvas-hint-item">
+                <span class="canvas-hint-key">Rad</span> Zoom
+              </span>
+              <span class="canvas-hint-item">
+                <span class="canvas-hint-key">Drag</span> Pan
+              </span>
+              <span class="canvas-hint-item">
+                <span class="canvas-hint-key">Klick</span> Auswahl
+              </span>
+            </div>
+
+            <!-- Plan-View Geologie-Legende -->
+            <div id="canvas-plan-legend" class="canvas-legend" hidden aria-label="Geologie-Legende">
+              <div class="canvas-legend-title" id="canvas-plan-legend-title">Legende</div>
+              <div id="canvas-plan-legend-items"></div>
+            </div>
+
+            <div id="viewer-3d-legend" class="viewer-3d-legend" hidden>
+              <div class="viewer-legend-title" id="viewer-3d-legend-title"></div>
+              <div class="viewer-legend-items" id="viewer-3d-legend-items"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ── BOHRUNG DETAIL ── -->
+        <section class="panel" data-panel="detail">
+          <div class="detail-header">
+            <div class="detail-id-block">
+              <div class="detail-eyebrow">Bohrung</div>
+              <h2 class="detail-bhid" id="detail-bhid">—</h2>
+            </div>
+            <div class="detail-kpi-row" id="detail-kpis"></div>
+          </div>
+
+          <div class="detail-body">
+
+            <!-- Left column: stammdaten -->
+            <div class="detail-col-left">
+
+              <div class="d-card">
+                <div class="d-card-title">Stammdaten</div>
+                <dl id="detail-stats" class="stat-list"></dl>
+              </div>
+
+              <div class="d-card d-card--grow detail-log-legacy" hidden aria-hidden="true">
+                <div class="d-card-header">
+                  <span class="d-card-title">LOG</span>
+                  <div class="log-col-wrap">
+                    <label class="log-col-label" for="log-color-col-legacy">Spalte:</label>
+                    <select id="log-color-col-legacy" class="log-col-select">
+                      <option value="">— auswählen —</option>
+                    </select>
+                  </div>
+                </div>
+                <div id="geo-log-legacy" class="geo-log" hidden aria-hidden="true">
+                  <div class="log-empty">Keine Bohrung ausgewählt</div>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Right column: log + canvas + survey + geology tables -->
+            <div class="detail-col-right">
+
+              <div class="d-card d-card--log">
+                <div class="d-card-header">
+                  <span class="d-card-title">LOG</span>
+                  <div class="detail-log-toolbar">
+                    <div class="log-col-wrap">
+                      <label class="log-col-label" for="log-color-col">Spalte:</label>
+                      <select id=”log-color-col” class=”log-col-select” aria-label=”Farbspalte für Log auswählen”>
+                        <option value=””>— auswählen —</option>
+                      </select>
+                    </div>
+                    <button id="detail-log-fit" class="btn btn-ghost btn-sm" title="Ansicht anpassen" aria-label="Log-Ansicht anpassen">Fit</button>
+                    <button id="detail-log-zoom-in" class="btn btn-ghost btn-sm" title="Vergrößern" aria-label="Log vergrößern">+</button>
+                    <button id="detail-log-zoom-out" class="btn btn-ghost btn-sm" title="Verkleinern" aria-label="Log verkleinern">−</button>
+                  </div>
+                </div>
+                <div class="detail-log-readout" id="detail-log-readout">Mausrad: Zoom · Ziehen: Verschieben</div>
+                <div id="geo-log" class="geo-log geo-log--canvas">
+                  <canvas id="geo-log-canvas"></canvas>
+                </div>
+              </div>
+
+              <div class="d-card d-card--canvas">
+                <div class="d-card-title">Trajektorie</div>
+                <canvas id="detail-canvas"></canvas>
+              </div>
+
+              <div class="d-card d-card--table">
+                <div class="d-card-title">Survey Punkte</div>
+                <div class="table-wrap table-wrap--compact">
+                  <table id="detail-survey-table"></table>
+                </div>
+              </div>
+
+              <div class="d-card d-card--table">
+                <div class="d-card-title">Intervalle</div>
+                <div class="table-wrap table-wrap--compact">
+                  <table id="detail-geology-table"></table>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ── IFC EXPORT / IMPORT ── -->
+        <section class="panel" data-panel="export">
+          <div class="panel-header">
+            <div class="panel-title-group">
+              <h2 class="panel-title">IFC 4.3 Add2</h2>
+              <p class="panel-desc">Bohrlochdaten als IFC 4.3 Add2 (IFC4X3_ADD2) exportieren oder IFC-Dateien importieren.</p>
+            </div>
+            <div class="panel-meta">
+              <span id="ifc-borehole-count" class="meta-badge">0 Bohrungen</span>
+            </div>
+          </div>
+
+          <div class="ifc-body">
+
+            <!-- Export -->
+            <div class="ifc-section">
+              <div class="ifc-section-title">
+                <svg viewBox="0 0 16 16" fill="none" width="16" height="16">
+                  <path d="M8 2V10M5 7L8 10L11 7M3 12H13V14H3V12Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                IFC Export
+              </div>
+
+              <div id="ifc-settings-summary" class="ifc-settings-summary"></div>
+
+              <!-- Datensatz -->
+              <div class="ifc-group-label">Datensatz</div>
+              <div class="ifc-options-grid">
+                <div class="ifc-option-group">
+                  <div class="ifc-option-label">Farbspalte</div>
+                  <select id="ifc-color-col" class="mapping-select">
+                    <option value="">— keine —</option>
+                  </select>
+                  <div class="ifc-option-hint">Steuert Farbe der Intervall-Geometrie</div>
+                </div>
+                <div class="ifc-option-group">
+                  <label class="ifc-check-label">
+                    <input type="checkbox" id="ifc-only-with-intervals" />
+                    Nur Bohrungen mit Intervallen
+                  </label>
+                  <div class="ifc-option-hint">Bohrungen ohne Geologie-Daten ausschließen</div>
+                </div>
+              </div>
+
+              <hr class="ifc-divider" />
+
+              <!-- IFC-Klassen -->
+              <div class="ifc-group-label">IFC-Klassen</div>
+              <div class="ifc-options-grid">
+                <div class="ifc-option-group">
+                  <div class="ifc-option-label">Bohrloch</div>
+                  <select id="ifc-borehole-class" class="mapping-select">
+                    <option value="IFCBOREHOLE">IfcBorehole (IFC 4.3)</option>
+                    <option value="IFCBUILDINGELEMENTPROXY">IfcBuildingElementProxy (kompatibel)</option>
+                  </select>
+                </div>
+                <div class="ifc-option-group">
+                  <div class="ifc-option-label">Intervalle</div>
+                  <select id="ifc-interval-class" class="mapping-select">
+                    <option value="IFCBUILDINGELEMENTPROXY">IfcBuildingElementProxy (kompatibel)</option>
+                    <option value="IFCGEOGRAPHICELEMENT">IfcGeographicElement</option>
+                    <option value="IFCGEOTECHNICALSTRATUM">IfcGeotechnicalStratum</option>
+                    <option value="IFCSOLIDSTRATUM">IfcSolidStratum</option>
+                  </select>
+                  <div class="ifc-option-hint">Für BricsCAD: <strong>IfcBuildingElementProxy</strong> empfohlen</div>
+                </div>
+              </div>
+
+              <hr class="ifc-divider" />
+
+              <!-- Darstellung -->
+              <div class="ifc-group-label">Darstellung &amp; Eigenschaften</div>
+              <div class="ifc-options-grid">
+                <div class="ifc-option-group">
+                  <label class="ifc-check-label">
+                    <input type="checkbox" id="ifc-borehole-geometry" checked />
+                    Bohrung visualisieren
+                  </label>
+                  <div class="ifc-option-hint">Deaktiviert: nur Intervalle erhalten Geometrie</div>
+                </div>
+                <div class="ifc-option-group">
+                  <label class="ifc-check-label">
+                    <input type="checkbox" id="ifc-include-stratum-pset" checked />
+                    Pset_GeotechnicalStratumCommon
+                  </label>
+                  <div class="ifc-option-hint">Standard-PropertySet an Intervallen</div>
+                </div>
+              </div>
+
+              <hr class="ifc-divider" />
+
+              <!-- Metadaten & Export -->
+              <div class="ifc-group-label">Metadaten</div>
+              <div class="ifc-options-grid">
+                <div class="ifc-option-group">
+                  <div class="ifc-option-label">Dateiname</div>
+                  <input type="text" id="ifc-filename" class="mapping-select" value="boreholes" />
+                </div>
+                <div class="ifc-option-group">
+                  <div class="ifc-option-label">Projekt (IfcProject)</div>
+                  <input type="text" id="ifc-project-name" class="mapping-select" placeholder="InfraCore GEO Boreholes" />
+                </div>
+                <div class="ifc-option-group">
+                  <div class="ifc-option-label">Standort (IfcSite)</div>
+                  <input type="text" id="ifc-site-name" class="mapping-select" placeholder="Borehole Site" />
+                </div>
+                <div class="ifc-option-group">
+                  <div class="ifc-option-label">Facility-Präfix</div>
+                  <input type="text" id="ifc-facility-prefix" class="mapping-select" placeholder="leer = nur Bohrlochs-ID" />
+                </div>
+              </div>
+
+              <div style="display:flex;justify-content:flex-end">
+                <button id="ifc-export-btn" class="btn btn-primary">
+                  <svg viewBox="0 0 16 16" fill="none" width="14" height="14">
+                    <path d="M8 2V10M5 7L8 10L11 7M3 12H13V14H3V12Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  IFC 4.3 herunterladen
+                </button>
+              </div>
+            </div>
+
+            <!-- Import -->
+            <div class="ifc-section">
+              <div class="ifc-section-title">
+                <svg viewBox="0 0 16 16" fill="none" width="16" height="16">
+                  <path d="M8 10V2M5 5L8 2L11 5M3 12H13V14H3V12Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                IFC Import
+              </div>
+              <p class="ifc-import-hint">
+                Liest <code>IFCBOREHOLE</code> und <code>IFCGEOTECHNICALSTRATUM</code> aus IFC 4.3 STEP-Dateien.
+                Die extrahierten Daten werden als Collar- und Intervall-Daten übernommen.
+              </p>
+              <div class="ifc-actions">
+                <label class="btn btn-secondary">
+                  <svg viewBox="0 0 16 16" fill="none" width="14" height="14">
+                    <path d="M8 10V2M5 5L8 2L11 5M3 12H13V14H3V12Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  IFC Datei öffnen
+                  <input type="file" id="ifc-import-file" accept=".ifc,.stp,.step" hidden />
+                </label>
+              </div>
+              <div id="ifc-import-result" class="ifc-import-result" hidden></div>
+            </div>
+
+          </div>
+        </section>
+
+      </main>
+    </div>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>

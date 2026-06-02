@@ -1,0 +1,10 @@
+﻿{
+  "name": "infracore-geo-boreholes",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "pack":  "node pack.js"
+  }
+}
