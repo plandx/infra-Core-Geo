@@ -246,18 +246,21 @@ function addMappedPropertySets(w, elemId, propertySets = []) {
 
 function buildGeomReprs(w, axisCtx, bodyCtx, ptIds, color, radius) {
   const reprIds = [];
+  const itemIds = [];
 
   const polylineId = polyline3D(w, ptIds);
   applyCurveStyle(w, polylineId, color, 0);
+  itemIds.push(polylineId);
   reprIds.push(shapeRepr(w, axisCtx, 'Axis', 'Curve3D', [polylineId]));
 
   if (radius > 0 && ptIds.length >= 2) {
     const solidId = w.add('IFCSWEPTDISKSOLID', `${ref(polylineId)},${num(radius)},$,$,$`);
     applySolidStyle(w, solidId, color);
+    itemIds.push(solidId);
     reprIds.push(shapeRepr(w, bodyCtx, 'Body', 'AdvancedSweptSolid', [solidId]));
   }
 
-  return reprIds;
+  return { reprIds, itemIds };
 }
 
 function createBoreholeElement(w, entityName, { name, description = '', placementId, shapeRef, tag }) {
@@ -359,6 +362,22 @@ export function exportToIfc(boreholes, geologyById = new Map(), options = {}) {
   const facilityIds = [];
   const facilityContents = [];
 
+  // CAD presentation layers: BricsCAD/AutoCAD colour imported objects by their
+  // (DWG) layer, not by the geometry style. Without this, everything lands on
+  // the default grey "Layer 0". We group geometry items onto named layers
+  // (one per geological unit + one for boreholes) and give each layer a colour
+  // via IfcPresentationLayerWithStyle.
+  const layers = new Map(); // layerName -> { color, itemIds: [] }
+  function addToLayer(name, color, itemIds) {
+    if (!itemIds?.length) return;
+    let layer = layers.get(name);
+    if (!layer) {
+      layer = { color, itemIds: [] };
+      layers.set(name, layer);
+    }
+    layer.itemIds.push(...itemIds);
+  }
+
   for (const bh of boreholes) {
     w.comment(`=== BOREHOLE: ${bh.id} ===`);
 
@@ -385,8 +404,9 @@ export function exportToIfc(boreholes, geologyById = new Map(), options = {}) {
     let bhShapeRef = '$';
     if (boreholeGeometry) {
       const bhColor = { r: 0.15, g: 0.47, b: 0.83 };
-      const bhReprIds = buildGeomReprs(w, axisCtx, bodyCtx, trajPtIds, bhColor, radius);
-      bhShapeRef = ref(prodShape(w, bhReprIds));
+      const { reprIds, itemIds } = buildGeomReprs(w, axisCtx, bodyCtx, trajPtIds, bhColor, radius);
+      bhShapeRef = ref(prodShape(w, reprIds));
+      addToLayer('Boreholes', bhColor, itemIds);
     }
 
     const bhId = createBoreholeElement(w, boreholeIfcClass, {
@@ -444,7 +464,8 @@ export function exportToIfc(boreholes, geologyById = new Map(), options = {}) {
       const sOriginPt = pt3(w, 0, 0, 0);
       const sOriginAx = ax3(w, sOriginPt, null, null);
       const stratPl = localPlace(w, sOriginAx, facilityPl);
-      const stratReprIds = buildGeomReprs(w, axisCtx, bodyCtx, segPtIds, color, radius);
+      const { reprIds: stratReprIds, itemIds: stratItemIds } =
+        buildGeomReprs(w, axisCtx, bodyCtx, segPtIds, color, radius);
       const stratShape = prodShape(w, stratReprIds);
 
       // Element name = parent container (facility) name as prefix + the
@@ -453,6 +474,8 @@ export function exportToIfc(boreholes, geologyById = new Map(), options = {}) {
       // per unit; the geological label also remains in the stratum PropertySet.
       const geoLabel = iv.unit || iv.subUnit || iv.geologyCode || 'Stratum';
       const stratName = `${facilityName} - ${geoLabel}`;
+      // Put the interval geometry on a coloured CAD layer named after the unit.
+      addToLayer(geoLabel, color, stratItemIds);
       const stratTag = `${bh.id}@${iv.from}-${iv.to}`;
       const stratId = createIntervalElement(w, intervalIfcClass, {
         name: stratName,
@@ -529,6 +552,19 @@ export function exportToIfc(boreholes, geologyById = new Map(), options = {}) {
       w.add('IFCRELCONTAINEDINSPATIALSTRUCTURE',
         `${newGuid()},$,${str('Facility Contents')},${str('Borehole and associated intervals')}` +
         `,${refList(elementIds.slice(i, i + 200))},${ref(facilityId)}`);
+    }
+  }
+
+  w.comment('=== CAD PRESENTATION LAYERS (coloured DWG layers) ===');
+  for (const [name, layer] of layers) {
+    const colorId = w.add('IFCCOLOURRGB',
+      `$,${num(layer.color.r)},${num(layer.color.g)},${num(layer.color.b)}`);
+    const renderingId = w.add('IFCSURFACESTYLERENDERING',
+      `${ref(colorId)},0.,${ref(colorId)},$,$,$,$,$,.NOTDEFINED.`);
+    const surfStyleId = w.add('IFCSURFACESTYLE', `$,.BOTH.,(${ref(renderingId)})`);
+    for (let i = 0; i < layer.itemIds.length; i += 500) {
+      w.add('IFCPRESENTATIONLAYERWITHSTYLE',
+        `${str(name)},$,${refList(layer.itemIds.slice(i, i + 500))},$,.T.,.F.,.F.,(${ref(surfStyleId)})`);
     }
   }
 
