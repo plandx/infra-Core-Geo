@@ -107,13 +107,23 @@ function prodShape(w, reprIds) {
   return w.add('IFCPRODUCTDEFINITIONSHAPE', `$,$,${refList(reprIds)}`);
 }
 
+// Assigns a presentation style to a geometry item. The style is wrapped in
+// IfcPresentationStyleAssignment: although deprecated in IFC4, AutoCAD-based
+// importers (BricsCAD, AutoCAD, and others) only read colours through this
+// wrapper and ignore the "direct" IFC4 style assignment, so wrapping it is
+// required for the colours to show up on import.
+function applyStyledItem(w, geomItemId, styleId) {
+  const assignId = w.add('IFCPRESENTATIONSTYLEASSIGNMENT', `(${ref(styleId)})`);
+  w.add('IFCSTYLEDITEM', `${ref(geomItemId)},(${ref(assignId)}),$`);
+}
+
 function applySolidStyle(w, geomItemId, color) {
   const { r, g, b } = color;
   const colorId = w.add('IFCCOLOURRGB', `$,${num(r)},${num(g)},${num(b)}`);
   const renderingId = w.add('IFCSURFACESTYLERENDERING',
     `${ref(colorId)},$,$,$,$,$,$,.NOTDEFINED.`);
   const surfStyleId = w.add('IFCSURFACESTYLE', `$,.BOTH.,(${ref(renderingId)})`);
-  w.add('IFCSTYLEDITEM', `${ref(geomItemId)},(${ref(surfStyleId)}),$`);
+  applyStyledItem(w, geomItemId, surfStyleId);
 }
 
 function applyCurveStyle(w, geomItemId, color, width = 0) {
@@ -121,7 +131,7 @@ function applyCurveStyle(w, geomItemId, color, width = 0) {
   const colorId = w.add('IFCCOLOURRGB', `$,${num(r)},${num(g)},${num(b)}`);
   const widthStr = width > 0 ? `IFCNONNEGATIVELENGTHMEASURE(${num(width)})` : '$';
   const styleId = w.add('IFCCURVESTYLE', `$,$,${widthStr},${ref(colorId)},.T.`);
-  w.add('IFCSTYLEDITEM', `${ref(geomItemId)},(${ref(styleId)}),$`);
+  applyStyledItem(w, geomItemId, styleId);
 }
 
 function resolveColor(value, colorColumn, colorFiles) {
