@@ -36,7 +36,7 @@ function projectDbPathFor(projectId) {
 
 function initSchema(database) {
   database.exec(`
-    PRAGMA journal_mode = DELETE;
+    PRAGMA journal_mode = WAL;
     PRAGMA synchronous = NORMAL;
     PRAGMA busy_timeout = 5000;
 
@@ -89,6 +89,12 @@ function openProjectDb(filePath) {
   const database = new DatabaseSync(filePath);
   initSchema(database);
   return database;
+}
+
+// Read path: open an existing project DB without running the (write-heavy)
+// schema bootstrap. Existing project files already carry the schema.
+function openProjectDbForRead(filePath) {
+  return new DatabaseSync(filePath, { readOnly: true });
 }
 
 function beginTransaction(database) {
@@ -272,7 +278,7 @@ export async function listProjectSnapshots() {
 
     const projects = [];
     for (const file of files) {
-      const database = openProjectDb(path.join(projectsDir, file));
+      const database = openProjectDbForRead(path.join(projectsDir, file));
       try {
         const row = readSnapshotFromDb(database);
         if (row) {
@@ -356,7 +362,7 @@ export async function loadProjectSnapshot(projectId) {
       };
     }
 
-    database = openProjectDb(targetPath);
+    database = openProjectDbForRead(targetPath);
     const row = readSnapshotFromDb(database);
 
     if (!row) {

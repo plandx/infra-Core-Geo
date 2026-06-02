@@ -2,26 +2,19 @@
 
 Lokale JavaScript-App zur Darstellung von Bohrungen aus `collar`- und `survey`-CSV-Dateien.
 
-## Desktop-App
+## Start
 
-Die bevorzugte Endanwender-Variante ist jetzt die verpackte Electron-Desktop-App.
-
-Fuer Entwicklung:
+Die App laeuft als lokaler HTTP-Server (`server.js`).
 
 ```bash
 npm start
 ```
 
-Das startet die lokale Desktop-Shell.
+Das startet den lokalen Server auf:
 
-Fuer einen reinen Web-/Server-Start:
-
-```bash
-npm run start:web
+```text
+http://127.0.0.1:4173
 ```
-
-
-## Web-Entwicklungsstart
 
 Alternativ unter Windows direkt per Doppelklick:
 
@@ -29,21 +22,18 @@ Alternativ unter Windows direkt per Doppelklick:
 start-app.bat
 ```
 
-Danach im Browser oeffnen:
-
-```text
-http://127.0.0.1:4173
-```
+> Hinweis: Eine verpackte Electron-Desktop-App ist derzeit nicht Teil dieses
+> Repositorys. `pack.js` erzeugt lediglich ein passwortgeschuetztes Quell-ZIP
+> (`npm run pack`).
 
 ## Projektstruktur
 
 - `index.html`: Einstiegspunkt der lokalen App
-- `server.js`: lokaler HTTP-Server fuer Web- und Electron-Betrieb
-- `electron/main.js`: Electron-Hauptprozess fuer die Desktop-App
-- `src/data`: CSV-Parsing
+- `server.js`: lokaler HTTP-Server
+- `server/`: SQLite-Projektspeicher (Workspace + benannte Projekte)
+- `src/data`: CSV-Parsing und lokale Persistenz
 - `src/domain`: Berechnung der Bohrlochtrajektorien
-- `src/render`: Canvas-Darstellung
-- `input data`: bereitgestellte Quelldaten
+- `src/render`: Canvas- und 3D-Darstellung (Three.js via CDN)
 
 ## Datenlogik
 

@@ -898,11 +898,14 @@ function buildProjectDbSnapshot() {
   return {
     projectId: WORKSPACE_PROJECT_ID,
     generatedAt: new Date().toISOString(),
-    attributeMappings: structuredClone(state.attributeMappings ?? []),
-    loadStatus: structuredClone(state.loadStatus),
-    collarRows: structuredClone(state.collarRows),
-    surveyRows: structuredClone(state.surveyRows),
-    geologyRows: structuredClone(state.geologyRows),
+    // Snapshot is consumed read-only (serialized for sync / SQLite save),
+    // so the large source arrays can be referenced directly instead of
+    // deep-cloned on every change.
+    attributeMappings: state.attributeMappings ?? [],
+    loadStatus: state.loadStatus,
+    collarRows: state.collarRows,
+    surveyRows: state.surveyRows,
+    geologyRows: state.geologyRows,
     colorFiles: state.colorFiles.map((cf) => ({
       id: cf.id,
       filename: cf.filename,
@@ -926,11 +929,11 @@ function buildProjectDbSnapshot() {
         id: borehole.id,
         normalizedId: borehole.normalizedId,
         className: borehole.className,
-        collar: structuredClone(borehole.collar),
+        collar: borehole.collar,
         totalDepth: borehole.totalDepth,
-        stations: structuredClone(borehole.stations),
-        points: structuredClone(borehole.points),
-        endPoint: structuredClone(borehole.endPoint),
+        stations: borehole.stations,
+        points: borehole.points,
+        endPoint: borehole.endPoint,
         lateralDisplacement: borehole.lateralDisplacement,
         geology,
         colorAssignments: geology.flatMap((interval) => interval.colorAssignments)
@@ -1000,191 +1003,8 @@ function filterDatasetRowsBySelection(rows, selectedIds, idKeys) {
   });
 }
 
-function _legacyExportPayload_removed() {
-  // removed — replaced by IFC export in src/ifc/writer.js
-  const scope = el("export-scope")?.value ?? "selected";
-  const geometryMode = el("export-geometry-mode")?.value ?? "trajectory";
-  const colorMode = el("export-color-mode")?.value ?? "dominant-interval";
-  const diameter = Math.max(0.01, Number(el("export-diameter")?.value ?? 0.2));
-  const includeMetadata = !!el("export-include-metadata")?.checked;
-  const includeProperties = !!el("export-include-properties")?.checked;
-  const includeBoreholes = !!el("export-include-boreholes")?.checked;
-  const includeCollar = !!el("export-include-collar")?.checked;
-  const includeSurvey = !!el("export-include-survey")?.checked;
-  const includeIntervals = !!el("export-include-intervals")?.checked;
-  const includeColors = !!el("export-include-colors")?.checked;
-  const includeRawDatasets = !!el("export-include-raw-datasets")?.checked;
-  const includeAxisPoints = !!el("export-include-axis-points")?.checked;
-  const ifcClass = el("export-ifc-class")?.value ?? "IfcBuildingElementProxy";
-  const units = el("export-units")?.value ?? "m";
-  const crs = el("export-crs")?.value?.trim() || "project-local";
-  const psetName = el("export-pset-name")?.value?.trim() || "Pset_InfraCoreBorehole";
-
-  const selectedBoreholes = getExportScopeBoreholes(scope);
-  const selectedIds = new Set(selectedBoreholes.map((bh) => bh.normalizedId));
-
-  const payload = {
-    schema: "infracore-geo-ifc-export/v1",
-    generatedAt: new Date().toISOString(),
-    source: {
-      app: "InfraCore GEO Borehole Viewer",
-      projectId: state.projectId,
-      selectedId: state.selectedId || null
-    },
-    selection: {
-      scope,
-      boreholeCount: selectedBoreholes.length,
-      boreholeIds: selectedBoreholes.map((bh) => bh.id)
-    },
-    ifc: {
-      targetEntity: ifcClass,
-      propertySetName: psetName,
-      units,
-      coordinateReference: crs,
-      geometry: {
-        mode: geometryMode,
-        diameter,
-        includeAxisPoints
-      }
-    }
-  };
-
-  if (includeMetadata) {
-    payload.metadata = {
-      counts: {
-        collarRows: state.collarRows.length,
-        surveyRows: state.surveyRows.length,
-        geologyRows: state.geologyRows.length,
-        colorFiles: state.colorFiles.length
-      },
-      loadStatus: structuredClone(state.loadStatus)
-    };
-  }
-
-  if (includeBoreholes) {
-    payload.boreholes = selectedBoreholes.map((borehole) => {
-      const intervals = getExportIntervalsForBorehole(borehole);
-      const boreholeColor = getAggregatedBoreholeColor(borehole, intervals, colorMode);
-      const geometry = {
-        mode: geometryMode,
-        diameter,
-        totalDepth: borehole.totalDepth,
-        pathLength: Number(boreholePathLength(borehole.points).toFixed(4)),
-        start: structuredClone(borehole.collar),
-        end: structuredClone(borehole.endPoint)
-      };
-
-      if (includeAxisPoints) {
-        geometry.axis = geometryMode === "length-only"
-          ? [structuredClone(borehole.points[0]), structuredClone(borehole.points[borehole.points.length - 1])]
-          : structuredClone(borehole.points);
-      }
-
-      const item = {
-        id: borehole.id,
-        normalizedId: borehole.normalizedId,
-        className: borehole.className || "",
-        geometry,
-        display: {
-          color: boreholeColor,
-          logColumn: state.logColumn || null
-        },
-        ifc: {
-          entity: ifcClass,
-          name: borehole.id,
-          objectType: "Borehole"
-        }
-      };
-
-      if (includeCollar) {
-        item.collar = structuredClone(borehole.collar);
-      }
-      if (includeSurvey) {
-        item.survey = structuredClone(borehole.stations);
-      }
-      if (includeIntervals) {
-        item.intervals = intervals.map((interval) => ({
-          from: interval.from,
-          to: interval.to,
-          thickness: interval.thickness,
-          subUnit: interval.subUnit,
-          unit: interval.unit,
-          geologyCode: interval.geologyCode,
-          description: interval.description,
-          formation: interval.formation,
-          classification: interval.classification,
-          colorAssignments: includeColors ? collectIntervalColorAssignments(interval) : []
-        }));
-      }
-      if (includeProperties) {
-        item.properties = {
-          BHID: borehole.id,
-          Class: borehole.className || "",
-          TotalDepth: borehole.totalDepth,
-          LateralDisplacement: borehole.lateralDisplacement,
-          SurveyPointCount: borehole.stations.length,
-          IntervalCount: intervals.length
-        };
-      }
-
-      return item;
-    });
-  }
-
-  if (includeColors) {
-    payload.colorFiles = state.colorFiles.map((cf) => ({
-      id: cf.id,
-      filename: cf.filename,
-      columns: [...cf.columns],
-      colors: serializeColorMap(cf.colorMap)
-    }));
-  }
-
-  if (includeRawDatasets) {
-    payload.datasets = {
-      collar: filterDatasetRowsBySelection(state.collarRows, selectedIds, ["BHID", "Location ID", "Hole ID"]),
-      survey: filterDatasetRowsBySelection(state.surveyRows, selectedIds, ["BHID", "Location ID", "Hole ID"]),
-      geology: filterDatasetRowsBySelection(state.geologyRows, selectedIds, ["Location ID", "BHID", "Hole ID"])
-    };
-  }
-
-  payload.ifcOpenShellHints = {
-    workflow: [
-      "JSON laden",
-      "Boreholes iterieren",
-      "IfcElement pro Bohrloch erzeugen",
-      "Achsgeometrie aus geometry.axis oder start/end ableiten",
-      "Durchmesser fuer SweptSolid / Section verwenden",
-      "Properties aus borehole.properties in PropertySet schreiben",
-      "Farben aus display.color oder interval.colorAssignments ableiten"
-    ]
-  };
-
-  return payload;
-}
-
-function formatJsonPreview(payload) {
-  return JSON.stringify(payload, null, 2);
-}
-
 function updateExportView() { /* removed — replaced by updateIfcExportStat */ }
 
-function refreshExportPreview() { return {}; /* removed */ }
-
-function downloadExportJson() { /* removed */
-  const requested = "";
-  const safeName = requested.replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_");
-  const blob = new Blob([text], { type: "application/json;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `${safeName}.json`;
-  document.body.append(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-  setStatus(`${safeName}.json exportiert.`, "ok");
-}
 
 function resetProjectState() {
   state.projectId = WORKSPACE_PROJECT_ID;
@@ -1881,7 +1701,8 @@ function renderTable(tableEl, rows, countEl, visibleEl, preferredCols = [], filt
     const bhid = tr.dataset.bhid;
     if (!bhid) continue;
     tr.addEventListener("click", () => {
-      const bh = state.boreholes.find((b) => b.id === normalizeBoreholeId(bhid));
+      const normalized = normalizeBoreholeId(bhid);
+      const bh = state.boreholes.find((b) => b.normalizedId === normalized);
       if (bh) {
         state.selectedId = bh.id;
         redraw();

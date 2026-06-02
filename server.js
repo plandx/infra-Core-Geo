@@ -61,7 +61,8 @@ function resolvePath(requestUrl) {
   const safePath = decodeURIComponent(url.pathname === "/" ? "/index.html" : url.pathname);
   const targetPath = path.normalize(path.join(rootDir, safePath));
 
-  if (!targetPath.startsWith(rootDir)) {
+  // Guard against path traversal, including sibling dirs like "<rootDir>-evil".
+  if (targetPath !== rootDir && !targetPath.startsWith(rootDir + path.sep)) {
     return null;
   }
 

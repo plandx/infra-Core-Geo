@@ -31,6 +31,7 @@ export class Viewer3D {
     this._raycaster = null;
     this._ready     = false;
     this._centroid  = null;
+    this._colorCache = new Map();
   }
 
   async init() {
@@ -99,15 +100,18 @@ export class Viewer3D {
   setBoreholes(boreholes, selectedId, geologyById = new Map(), logColumn = '', colorFiles = [], diameter = 0) {
     if (!this._ready) return;
     this._clearBoreholes();
+    this._colorCache.clear();
     if (!boreholes.length) return;
 
     // Compute centroid for coordinate normalization
     let cx = 0, cy = 0, cz = 0;
-    for (const bh of boreholes) { cx += bh.collar.x; cy += bh.collar.y; cz += bh.collar.z; }
+    let maxDepth = 100;
+    for (const bh of boreholes) {
+      cx += bh.collar.x; cy += bh.collar.y; cz += bh.collar.z;
+      if (bh.totalDepth > maxDepth) maxDepth = bh.totalDepth;
+    }
     cx /= boreholes.length; cy /= boreholes.length; cz /= boreholes.length;
     this._centroid = { x: cx, y: cy, z: cz };
-
-    const maxDepth = Math.max(...boreholes.map((bh) => bh.totalDepth), 100);
 
     // Ground grid centred on borehole cloud
     this._addGrid(maxDepth * 4);
@@ -217,6 +221,15 @@ export class Viewer3D {
   }
 
   _resolveColor(value, logColumn, colorFiles) {
+    const cacheKey = `${logColumn ?? ''}|${value ?? ''}`;
+    const cached = this._colorCache.get(cacheKey);
+    if (cached !== undefined) return cached;
+    const resolved = this._computeColor(value, logColumn, colorFiles);
+    this._colorCache.set(cacheKey, resolved);
+    return resolved;
+  }
+
+  _computeColor(value, logColumn, colorFiles) {
     if (value && colorFiles.length) {
       const ordered = logColumn
         ? [...colorFiles.filter((cf) => cf.columns.includes(logColumn)),
