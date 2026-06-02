@@ -3,6 +3,8 @@
  * Loaded lazily on first use; requires internet for CDN imports.
  */
 
+import { findColorEntry } from '../domain/color-match.js';
+
 let THREE = null;
 let OrbitControls = null;
 
@@ -230,21 +232,9 @@ export class Viewer3D {
   }
 
   _computeColor(value, logColumn, colorFiles) {
-    if (value && colorFiles.length) {
-      const ordered = logColumn
-        ? [...colorFiles.filter((cf) => cf.columns.includes(logColumn)),
-           ...colorFiles.filter((cf) => cf.columns.length === 0)]
-        : colorFiles;
+    const entry = findColorEntry(value, logColumn, colorFiles);
+    if (entry) return `rgb(${entry.r},${entry.g},${entry.b})`;
 
-      for (const cf of ordered) {
-        const direct = cf.colorMap.get(value);
-        if (direct) return `rgb(${direct.r},${direct.g},${direct.b})`;
-        for (const [key, c] of cf.colorMap) {
-          if (value.length > 2 && (key.includes(value) || value.includes(key)))
-            return `rgb(${c.r},${c.g},${c.b})`;
-        }
-      }
-    }
     // Hash fallback
     let h = 0;
     for (const ch of value || 'interval') { h = (h << 5) - h + ch.charCodeAt(0); h |= 0; }

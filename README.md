@@ -4,6 +4,15 @@ Lokale JavaScript-App zur Darstellung von Bohrungen aus `collar`- und `survey`-C
 
 ## Start
 
+Voraussetzung: Node.js >= 22 (der SQLite-Projektspeicher nutzt `node:sqlite`).
+
+Einmalig die Abhaengigkeiten installieren (stellt Three.js lokal bereit, damit
+der 3D-Viewer ohne Internetverbindung funktioniert):
+
+```bash
+npm install
+```
+
 Die App laeuft als lokaler HTTP-Server (`server.js`).
 
 ```bash

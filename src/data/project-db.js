@@ -4,23 +4,30 @@ let queuedSnapshot = null;
 let lastSyncedSignature = "";
 export const WORKSPACE_PROJECT_ID = "__workspace__";
 
-function buildSignature(snapshot) {
-  return JSON.stringify({
-    collarRows: snapshot.collarRows,
-    surveyRows: snapshot.surveyRows,
-    geologyRows: snapshot.geologyRows,
-    colorFiles: snapshot.colorFiles,
-    boreholes: snapshot.boreholes
-  });
+// Cheap, non-cryptographic content fingerprint (FNV-1a, 32-bit). Combined
+// with the body length to make accidental collisions practically impossible
+// for our use. Lets us dedup identical syncs without a second full
+// JSON.stringify of the (potentially large) dataset.
+function fingerprint(body) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < body.length; i++) {
+    h ^= body.charCodeAt(i);
+    h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+  }
+  return `${body.length}:${h.toString(16)}`;
 }
 
 async function postJson(url, payload) {
+  return postJsonBody(url, JSON.stringify(payload));
+}
+
+async function postJsonBody(url, body) {
   const response = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
     },
-    body: JSON.stringify(payload)
+    body
   });
 
   if (!response.ok) {
@@ -49,17 +56,19 @@ async function flushSyncQueue() {
   if (syncInFlight || !queuedSnapshot) return;
 
   const snapshot = queuedSnapshot;
-  const signature = buildSignature(snapshot);
+  queuedSnapshot = null;
+
+  // Serialize once; reuse the same body for dedup fingerprint and request.
+  const body = JSON.stringify(snapshot);
+  const signature = fingerprint(body);
   if (signature === lastSyncedSignature) {
-    queuedSnapshot = null;
     return;
   }
 
-  queuedSnapshot = null;
   syncInFlight = true;
 
   try {
-    await postJson("/api/project-db/sync", snapshot);
+    await postJsonBody("/api/project-db/sync", body);
     lastSyncedSignature = signature;
   } catch (error) {
     console.warn("[project-db]", error.message);

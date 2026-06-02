@@ -1,10 +1,17 @@
-﻿{
+{
   "name": "infracore-geo-boreholes",
   "version": "0.0.2",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "start": "node server.js",
-    "pack":  "node pack.js"
+    "pack": "node pack.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "three": "0.167.0"
   }
 }

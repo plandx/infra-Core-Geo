@@ -8,6 +8,8 @@
  *         IfcRelContainedInSpatialStructure -> borehole + intervals
  */
 
+import { findColorEntry } from '../domain/color-match.js';
+
 const _GUID_CHARS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$';
 
 function newGuid() {
@@ -125,22 +127,8 @@ function applyCurveStyle(w, geomItemId, color, width = 0) {
 function resolveColor(value, colorColumn, colorFiles) {
   if (!value || value === '$' || value === '-') return null;
 
-  const ordered = colorColumn
-    ? [
-      ...colorFiles.filter((cf) => cf.columns.includes(colorColumn)),
-      ...colorFiles.filter((cf) => cf.columns.length === 0)
-    ]
-    : colorFiles;
-
-  for (const cf of ordered) {
-    const direct = cf.colorMap.get(value);
-    if (direct) return { r: direct.r / 255, g: direct.g / 255, b: direct.b / 255 };
-    for (const [key, c] of cf.colorMap) {
-      if (value.length > 2 && (key.includes(value) || value.includes(key))) {
-        return { r: c.r / 255, g: c.g / 255, b: c.b / 255 };
-      }
-    }
-  }
+  const entry = findColorEntry(value, colorColumn, colorFiles);
+  if (entry) return { r: entry.r / 255, g: entry.g / 255, b: entry.b / 255 };
 
   let h = 0;
   for (const ch of value) {

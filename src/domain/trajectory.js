@@ -48,7 +48,9 @@ function isValidCollar(collar) {
     return false;
   }
 
-  if (collar.x === 0 || collar.y === 0) {
+  // Only a (0,0) origin counts as "unset"; a single zero coordinate is
+  // legitimate in local/shifted coordinate systems.
+  if (collar.x === 0 && collar.y === 0) {
     return false;
   }
 

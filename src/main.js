@@ -5,6 +5,7 @@ import { Viewer3D } from "./render/viewer3d.js";
 import { buildBoreholes } from "./domain/trajectory.js";
 import { buildGeologyIndex } from "./domain/geology.js";
 import { normalizeBoreholeId } from "./domain/identifiers.js";
+import { findColorEntry } from "./domain/color-match.js";
 import { renderCanvas } from "./render/canvas-view.js";
 import { saveDataset, loadAllCached, clearAll } from "./data/db.js";
 import { parseLfcColors, serializeColorMap, deserializeColorMap } from "./data/colors.js";
@@ -80,7 +81,7 @@ function countValidCollarRows(rows, mapping) {
     const x     = toNumber(row[mapping.x]);
     const y     = toNumber(row[mapping.y]);
     const depth = toNumber(row[mapping.depth]);
-    return bhid && isFinite(x) && x !== 0 && isFinite(y) && y !== 0 && depth > 0;
+    return bhid && isFinite(x) && isFinite(y) && !(x === 0 && y === 0) && depth > 0;
   }).length;
 }
 
@@ -897,7 +898,8 @@ function collectIntervalColorAssignments(interval) {
 function buildProjectDbSnapshot() {
   return {
     projectId: WORKSPACE_PROJECT_ID,
-    generatedAt: new Date().toISOString(),
+    // generatedAt is assigned at send/save time so that identical data
+    // produces an identical sync signature (see project-db.js).
     // Snapshot is consumed read-only (serialized for sync / SQLite save),
     // so the large source arrays can be referenced directly instead of
     // deep-cloned on every change.
@@ -1102,16 +1104,124 @@ async function applyProjectSnapshot(snapshot, sourceLabel = "Projekt") {
   redraw();
 }
 
+// =====================================================================
+// MODAL DIALOG (promise-based; replaces native prompt)
+// =====================================================================
+function showModal({ title, message = "", fields = [], confirmLabel = "OK", cancelLabel = "Abbrechen" }) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "app-modal-overlay";
+
+    const dialog = document.createElement("div");
+    dialog.className = "app-modal";
+    dialog.setAttribute("role", "dialog");
+    dialog.setAttribute("aria-modal", "true");
+
+    const heading = document.createElement("h3");
+    heading.className = "app-modal-title";
+    heading.textContent = title;
+    dialog.append(heading);
+
+    if (message) {
+      const desc = document.createElement("p");
+      desc.className = "app-modal-message";
+      desc.textContent = message;
+      dialog.append(desc);
+    }
+
+    const inputs = new Map();
+    for (const field of fields) {
+      const wrap = document.createElement("label");
+      wrap.className = "app-modal-field";
+      if (field.label) {
+        const span = document.createElement("span");
+        span.textContent = field.label;
+        wrap.append(span);
+      }
+
+      let input;
+      if (field.type === "select") {
+        input = document.createElement("select");
+        for (const opt of field.options ?? []) {
+          const option = document.createElement("option");
+          option.value = opt.value;
+          option.textContent = opt.label ?? opt.value;
+          input.append(option);
+        }
+        if (field.value != null) input.value = field.value;
+      } else {
+        input = document.createElement("input");
+        input.type = "text";
+        input.value = field.value ?? "";
+        if (field.placeholder) input.placeholder = field.placeholder;
+      }
+      input.className = "app-modal-input";
+      inputs.set(field.name, input);
+      wrap.append(input);
+      dialog.append(wrap);
+    }
+
+    const footer = document.createElement("div");
+    footer.className = "app-modal-footer";
+    const cancelBtn = document.createElement("button");
+    cancelBtn.type = "button";
+    cancelBtn.className = "btn btn-secondary";
+    cancelBtn.textContent = cancelLabel;
+    const confirmBtn = document.createElement("button");
+    confirmBtn.type = "button";
+    confirmBtn.className = "btn btn-primary";
+    confirmBtn.textContent = confirmLabel;
+    footer.append(cancelBtn, confirmBtn);
+    dialog.append(footer);
+
+    overlay.append(dialog);
+    document.body.append(overlay);
+
+    function close(result) {
+      document.removeEventListener("keydown", onKey);
+      overlay.remove();
+      resolve(result);
+    }
+    function collect() {
+      const out = {};
+      for (const [name, input] of inputs) out[name] = String(input.value ?? "").trim();
+      return out;
+    }
+    function onKey(event) {
+      if (event.key === "Escape") {
+        close(null);
+      } else if (event.key === "Enter" && document.activeElement?.tagName !== "SELECT") {
+        event.preventDefault();
+        close(collect());
+      }
+    }
+
+    cancelBtn.addEventListener("click", () => close(null));
+    confirmBtn.addEventListener("click", () => close(collect()));
+    overlay.addEventListener("mousedown", (event) => { if (event.target === overlay) close(null); });
+    document.addEventListener("keydown", onKey);
+
+    const firstInput = inputs.values().next().value;
+    (firstInput ?? confirmBtn).focus();
+    if (firstInput?.tagName === "INPUT") firstInput.select?.();
+  });
+}
+
 async function saveProjectToSQLite() {
   if (!state.collarRows.length && !state.surveyRows.length && !state.geologyRows.length) {
     setStatus("Keine Daten vorhanden, die als Projekt gespeichert werden koennen.", "error");
     return;
   }
 
-  const name = prompt("Projektname fuer SQLite-Speicherung:", "");
-  if (!name) return;
+  const result = await showModal({
+    title: "Projekt speichern",
+    message: "Speichert den aktuellen Stand als eigene SQLite-Datei.",
+    fields: [{ name: "projectId", type: "text", label: "Projektname", placeholder: "z. B. Baustelle-Nord" }],
+    confirmLabel: "Speichern"
+  });
+  if (!result) return;
 
-  const projectId = name.trim();
+  const projectId = result.projectId;
   if (!projectId) return;
   if (projectId === WORKSPACE_PROJECT_ID) {
     setStatus("Dieser Projektname ist reserviert.", "error");
@@ -1136,11 +1246,20 @@ async function openProjectFromSQLite() {
       return;
     }
 
-    const suggestion = projects.map((p) => p.projectId).join(", ");
-    const selected = prompt(`Projektname oeffnen:\n${suggestion}`, projects[0]?.projectId ?? "");
-    if (!selected) return;
+    const choice = await showModal({
+      title: "Projekt öffnen",
+      fields: [{
+        name: "projectId",
+        type: "select",
+        label: "Gespeichertes Projekt",
+        value: projects[0]?.projectId,
+        options: projects.map((p) => ({ value: p.projectId, label: p.projectId }))
+      }],
+      confirmLabel: "Öffnen"
+    });
+    if (!choice || !choice.projectId) return;
 
-    const result = await loadSavedProject(selected.trim());
+    const result = await loadSavedProject(choice.projectId);
     if (!result.snapshot) {
       throw new Error(result.error ?? "Projekt nicht gefunden.");
     }
@@ -1171,25 +1290,9 @@ function getIntervalColor(value, logColumn) {
     const hue = hashInt("empty") % 360;
     result = `hsla(${hue},20%,88%,0.6)`;
   } else {
-    const ordered = logColumn
-      ? [
-          ...state.colorFiles.filter((cf) => cf.columns.includes(logColumn)),
-          ...state.colorFiles.filter((cf) => cf.columns.length === 0)
-        ]
-      : state.colorFiles;
-
-    let found = null;
-    outer: for (const cf of ordered) {
-      const direct = cf.colorMap.get(value);
-      if (direct) { found = direct.css; break; }
-      if (value.length > 2) {
-        for (const [key, color] of cf.colorMap) {
-          if (key.includes(value) || value.includes(key)) { found = color.css; break outer; }
-        }
-      }
-    }
-    if (found) {
-      result = found;
+    const entry = findColorEntry(value, logColumn, state.colorFiles);
+    if (entry) {
+      result = entry.css;
     } else {
       const hue = hashInt(value) % 360;
       result = `hsla(${hue},52%,72%,0.88)`;

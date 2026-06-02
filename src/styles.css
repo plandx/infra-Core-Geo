@@ -2767,3 +2767,75 @@ canvas {
   letter-spacing: 0.06em;
   padding-top: 2px;
 }
+
+/* =====================================================================
+   Modal dialog (promise-based; replaces native prompt)
+   ===================================================================== */
+.app-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.38);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 24px;
+}
+
+.app-modal {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.28);
+  width: 100%;
+  max-width: 420px;
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.app-modal-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #201F1E;
+}
+
+.app-modal-message {
+  margin: 0;
+  font-size: 13px;
+  color: #605E5C;
+  line-height: 1.4;
+}
+
+.app-modal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #323130;
+}
+
+.app-modal-input {
+  font: inherit;
+  font-weight: 400;
+  padding: 8px 10px;
+  border: 1px solid #C8C6C4;
+  border-radius: 4px;
+  background: #fff;
+  color: #201F1E;
+}
+
+.app-modal-input:focus {
+  outline: none;
+  border-color: #0078D4;
+  box-shadow: 0 0 0 1px #0078D4;
+}
+
+.app-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
