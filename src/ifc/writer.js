@@ -54,6 +54,26 @@ export function sanitizeLayerName(name) {
   return cleaned || 'Layer';
 }
 
+// Builds an element name from a template with {token} placeholders.
+// Unknown/empty tokens collapse away, and dangling separators left behind by
+// empty tokens are trimmed. Returns '' if nothing resolved.
+export function applyNameTemplate(template, tokens) {
+  if (!template) return '';
+  const filled = String(template).replace(/\{(\w+)\}/g, (_, key) => {
+    const value = tokens[key.toLowerCase()];
+    return value === null || value === undefined ? '' : String(value);
+  });
+  return filled
+    .replace(/\s+/g, ' ')
+    .replace(/^[\s\-_/|·,;:]+|[\s\-_/|·,;:]+$/g, '')
+    .trim();
+}
+
+// Default name schemas (placeholders documented in the export UI).
+export const DEFAULT_BOREHOLE_NAME_TEMPLATE = '{borehole}';
+export const DEFAULT_INTERVAL_NAME_TEMPLATE = '{borehole} - {geo}';
+
+
 class StepWriter {
   constructor() {
     this._next = 1;
@@ -324,7 +344,9 @@ export function exportToIfc(boreholes, geologyById = new Map(), options = {}) {
     intervalAttributeMappings = [],
     projectName = 'InfraCore GEO Boreholes',
     siteName = 'Borehole Site',
-    facilityPrefix = ''
+    facilityPrefix = '',
+    boreholeNameTemplate = DEFAULT_BOREHOLE_NAME_TEMPLATE,
+    intervalNameTemplate = DEFAULT_INTERVAL_NAME_TEMPLATE
   } = options;
 
   if (!boreholes.length) throw new Error('Keine Bohrungen zum Exportieren.');
@@ -399,9 +421,14 @@ export function exportToIfc(boreholes, geologyById = new Map(), options = {}) {
     const collarPt = pt3(w, bh.collar.x - refX, bh.collar.y - refY, bh.collar.z - refZ);
     const collarAx = ax3(w, collarPt, null, null);
     const facilityPl = localPlace(w, collarAx, sitePl);
-    // Name of the parent spatial container; every contained IfcElement
-    // (borehole + intervals) inherits this as its own Name.
+    // Spatial container name; also the {borehole} token for element names.
     const facilityName = `${facilityPrefix}${bh.id}`;
+    const boreholeTokens = {
+      prefix: facilityPrefix,
+      bhid: bh.id,
+      borehole: facilityName,
+      class: bh.className || ''
+    };
     const facilityId = createFacilityElement(w, {
       name: facilityName,
       description: `Facility for borehole ${bh.id}`,
@@ -425,7 +452,7 @@ export function exportToIfc(boreholes, geologyById = new Map(), options = {}) {
     }
 
     const bhId = createBoreholeElement(w, boreholeIfcClass, {
-      name: facilityName,
+      name: applyNameTemplate(boreholeNameTemplate, boreholeTokens) || facilityName,
       description: bh.className || '',
       placementId: bhPl,
       shapeRef: bhShapeRef,
@@ -483,12 +510,22 @@ export function exportToIfc(boreholes, geologyById = new Map(), options = {}) {
         buildGeomReprs(w, axisCtx, bodyCtx, segPtIds, color, radius);
       const stratShape = prodShape(w, stratReprIds);
 
-      // Element name = parent container (facility) name as prefix + the
-      // geological unit. The geological suffix keeps interval names distinct
-      // so layer-by-name importers (e.g. BricsCAD) assign one layer/colour
-      // per unit; the geological label also remains in the stratum PropertySet.
+      // {geo} = smart geological label (unit, then sub-unit, then code).
       const geoLabel = iv.unit || iv.subUnit || iv.geologyCode || 'Stratum';
-      const stratName = `${facilityName} - ${geoLabel}`;
+      // Element name from the configurable interval name template.
+      const intervalTokens = {
+        ...boreholeTokens,
+        geo: geoLabel,
+        unit: iv.unit || '',
+        subunit: iv.subUnit || '',
+        code: iv.geologyCode || '',
+        from: iv.from,
+        to: iv.to,
+        thickness: iv.thickness,
+        desc: iv.description || '',
+        color: colValue
+      };
+      const stratName = applyNameTemplate(intervalNameTemplate, intervalTokens) || geoLabel;
       // Layer = colour source: name it after the selected colour-column value
       // (falls back to the geological unit) so that colour ↔ layer is 1:1.
       addToLayer(colValue || geoLabel, color, stratItemIds);

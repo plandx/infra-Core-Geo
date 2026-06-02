@@ -1,5 +1,5 @@
 import { parseCsv, detectDelimiter } from "./data/csv.js";
-import { exportToIfc } from "./ifc/writer.js";
+import { exportToIfc, applyNameTemplate, DEFAULT_BOREHOLE_NAME_TEMPLATE, DEFAULT_INTERVAL_NAME_TEMPLATE } from "./ifc/writer.js";
 import { importFromIfc } from "./ifc/reader.js";
 import { Viewer3D } from "./render/viewer3d.js";
 import { buildBoreholes } from "./domain/trajectory.js";
@@ -3228,6 +3228,39 @@ function getExportBoreholes() {
   return state.boreholes;
 }
 
+function updateIfcNamePreview() {
+  const previewEl = el("ifc-name-preview");
+  if (!previewEl) return;
+
+  const bhTpl  = el("ifc-name-borehole")?.value?.trim() || DEFAULT_BOREHOLE_NAME_TEMPLATE;
+  const ivTpl  = el("ifc-name-interval")?.value?.trim() || DEFAULT_INTERVAL_NAME_TEMPLATE;
+  const prefix = el("ifc-facility-prefix")?.value ?? "";
+
+  const bh = state.boreholes[0];
+  if (!bh) {
+    previewEl.textContent = "Vorschau: (noch keine Bohrungen geladen)";
+    previewEl.className = "mapping-preview is-warn";
+    return;
+  }
+
+  const facilityName = `${prefix}${bh.id}`;
+  const bhTokens = { prefix, bhid: bh.id, borehole: facilityName, class: bh.className || "" };
+  const iv = (state.geologyById.get(bh.normalizedId) ?? [])[0];
+  const ivTokens = iv
+    ? {
+        ...bhTokens,
+        geo: iv.unit || iv.subUnit || iv.geologyCode || "Stratum",
+        unit: iv.unit || "", subunit: iv.subUnit || "", code: iv.geologyCode || "",
+        from: iv.from, to: iv.to, thickness: iv.thickness, desc: iv.description || ""
+      }
+    : { ...bhTokens, geo: "Sand", unit: "Sand", from: 0, to: 5, thickness: 5 };
+
+  const bhName = applyNameTemplate(bhTpl, bhTokens) || facilityName;
+  const ivName = applyNameTemplate(ivTpl, ivTokens) || ivTokens.geo;
+  previewEl.textContent = `Vorschau · Bohrloch: "${bhName}"   ·   Intervall: "${ivName}"`;
+  previewEl.className = "mapping-preview is-ok";
+}
+
 function updateIfcSettingsSummary() {
   const summary = el("ifc-settings-summary");
   const countEl = el("ifc-borehole-count");
@@ -3349,6 +3382,8 @@ el("ifc-export-btn")?.addEventListener("click", () => {
   const projectName    = el("ifc-project-name")?.value?.trim()    || "InfraCore GEO Boreholes";
   const siteName       = el("ifc-site-name")?.value?.trim()       || "Borehole Site";
   const facilityPrefix = el("ifc-facility-prefix")?.value ?? "";
+  const boreholeNameTemplate = el("ifc-name-borehole")?.value?.trim() || DEFAULT_BOREHOLE_NAME_TEMPLATE;
+  const intervalNameTemplate = el("ifc-name-interval")?.value?.trim() || DEFAULT_INTERVAL_NAME_TEMPLATE;
 
   setStatus("Erstelle IFC 4.3 Add2 Datei…", "busy");
   try {
@@ -3366,7 +3401,9 @@ el("ifc-export-btn")?.addEventListener("click", () => {
       intervalAttributeMappings,
       projectName,
       siteName,
-      facilityPrefix
+      facilityPrefix,
+      boreholeNameTemplate,
+      intervalNameTemplate
     });
     const blob = new Blob([stepText], { type: "application/x-step" });
     const url  = URL.createObjectURL(blob);
@@ -3389,6 +3426,28 @@ el("ifc-export-btn")?.addEventListener("click", () => {
     if (state.activeTab === "export") updateIfcSettingsSummary();
   });
 });
+
+// IfcName-Schema: preset dropdown fills the interval template; manual edits
+// switch the preset to "custom". Every change refreshes the live preview.
+el("ifc-name-interval-preset")?.addEventListener("change", (e) => {
+  if (e.target.value !== "__custom__") {
+    const input = el("ifc-name-interval");
+    if (input) input.value = e.target.value;
+  }
+  updateIfcNamePreview();
+});
+
+el("ifc-name-interval")?.addEventListener("input", () => {
+  const preset = el("ifc-name-interval-preset");
+  const value = el("ifc-name-interval")?.value ?? "";
+  if (preset && ![...preset.options].some((o) => o.value === value)) {
+    preset.value = "__custom__";
+  }
+  updateIfcNamePreview();
+});
+
+el("ifc-name-borehole")?.addEventListener("input", updateIfcNamePreview);
+el("ifc-facility-prefix")?.addEventListener("input", updateIfcNamePreview);
 
 
 // =====================================================================
@@ -3546,7 +3605,10 @@ document.addEventListener("change", (e) => {
 // Update IFC export summary when tab becomes active
 qsa(".nav-item").forEach((item) => {
   if (item.dataset.tab === "export") {
-    item.addEventListener("click", updateIfcSettingsSummary);
+    item.addEventListener("click", () => {
+      updateIfcSettingsSummary();
+      updateIfcNamePreview();
+    });
   }
 });
 

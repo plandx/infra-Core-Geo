@@ -1041,7 +1041,39 @@
                 </div>
               </div>
 
-              <div style="display:flex;justify-content:flex-end">
+              <hr class="ifc-divider" />
+
+              <!-- IfcName-Schema -->
+              <div class="ifc-group-label">IfcName-Schema</div>
+              <div class="ifc-options-grid">
+                <div class="ifc-option-group">
+                  <div class="ifc-option-label">Bohrloch-Name</div>
+                  <input type="text" id="ifc-name-borehole" class="mapping-select" value="{borehole}" placeholder="{borehole}" />
+                  <div class="ifc-option-hint">Name des IfcBorehole-Elements</div>
+                </div>
+                <div class="ifc-option-group">
+                  <div class="ifc-option-label">Intervall-Name</div>
+                  <select id="ifc-name-interval-preset" class="mapping-select">
+                    <option value="{borehole} - {geo}">Bohrloch + Einheit</option>
+                    <option value="{geo}">Nur Einheit</option>
+                    <option value="{borehole} - {code}">Bohrloch + Geologie-Code</option>
+                    <option value="{borehole} ({from}-{to}m)">Bohrloch + Tiefe</option>
+                    <option value="{geo} ({from}-{to}m)">Einheit + Tiefe</option>
+                    <option value="{borehole}">Nur Bohrloch</option>
+                    <option value="__custom__">Eigenes Schema…</option>
+                  </select>
+                  <input type="text" id="ifc-name-interval" class="mapping-select" value="{borehole} - {geo}" placeholder="{borehole} - {geo}" style="margin-top:6px" />
+                  <div class="ifc-option-hint">Name der Intervall-/Stratum-Elemente</div>
+                </div>
+              </div>
+              <div class="ifc-option-hint" style="margin-top:8px">
+                Platzhalter: <code>{borehole}</code> <code>{prefix}</code> <code>{bhid}</code> <code>{class}</code>
+                <code>{geo}</code> <code>{unit}</code> <code>{subunit}</code> <code>{code}</code>
+                <code>{from}</code> <code>{to}</code> <code>{thickness}</code> <code>{desc}</code>
+              </div>
+              <div id="ifc-name-preview" class="mapping-preview" style="margin-top:8px"></div>
+
+              <div style="display:flex;justify-content:flex-end;margin-top:14px">
                 <button id="ifc-export-btn" class="btn btn-primary">
                   <svg viewBox="0 0 16 16" fill="none" width="14" height="14">
                     <path d="M8 2V10M5 7L8 10L11 7M3 12H13V14H3V12Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { exportToIfc, sanitizeLayerName } from "../src/ifc/writer.js";
+import { exportToIfc, sanitizeLayerName, applyNameTemplate } from "../src/ifc/writer.js";
 
 function sampleBorehole() {
   return {
@@ -71,4 +71,26 @@ test("each colour-column value yields its own coloured layer (colour <-> layer 1
   const layers = [...step.matchAll(/IFCPRESENTATIONLAYERWITHSTYLE\('([^']*)'/g)].map((m) => m[1]);
   assert.ok(layers.includes("RED"), "distinct layer for colour value RED");
   assert.ok(layers.includes("BLUE"), "distinct layer for colour value BLUE");
+});
+
+test("applyNameTemplate fills tokens and trims dangling separators", () => {
+  assert.equal(applyNameTemplate("{borehole} - {geo}", { borehole: "BH-01", geo: "Sand" }), "BH-01 - Sand");
+  assert.equal(applyNameTemplate("{borehole} - {geo}", { borehole: "BH-01", geo: "" }), "BH-01");
+  assert.equal(applyNameTemplate("{bhid}_{nope}", { bhid: "X" }), "X");
+  assert.equal(applyNameTemplate("", { bhid: "X" }), "");
+});
+
+test("custom name templates drive element names", () => {
+  const bh = sampleBorehole();
+  const geo = new Map([[bh.normalizedId, [
+    { from: 0, to: 5, thickness: 5, unit: "Sand", description: "", raw: {} }
+  ]]]);
+  const step = exportToIfc([bh], geo, {
+    diameter: 0.2,
+    boreholeNameTemplate: "{bhid}",
+    intervalNameTemplate: "{unit} ({from}-{to}m)"
+  });
+  const nameOf = (re) => step.split("\n").find((l) => re.test(l))?.match(/,'([^']*)'/)?.[1];
+  assert.equal(nameOf(/IFCBOREHOLE\(/), "BH-01");
+  assert.equal(nameOf(/IFCBUILDINGELEMENTPROXY\(/), "Sand (0-5m)");
 });
