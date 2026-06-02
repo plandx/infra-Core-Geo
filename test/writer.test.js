@@ -44,5 +44,7 @@ test("contained elements inherit the parent facility name", () => {
   const nameOf = (re) => step.split("\n").find((l) => re.test(l))?.match(/,'([^']*)'/)?.[1];
   assert.equal(nameOf(/IFCFACILITY\(/), "GW-BH-01");
   assert.equal(nameOf(/IFCBOREHOLE\(/), "GW-BH-01");
-  assert.equal(nameOf(/IFCBUILDINGELEMENTPROXY\(/), "GW-BH-01");
+  // Interval name = container prefix + geological unit (keeps layer/colour
+  // differentiation in layer-by-name importers such as BricsCAD).
+  assert.equal(nameOf(/IFCBUILDINGELEMENTPROXY\(/), "GW-BH-01 - Sand");
 });

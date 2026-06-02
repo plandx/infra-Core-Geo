@@ -433,12 +433,15 @@ export function exportToIfc(boreholes, geologyById = new Map(), options = {}) {
       const stratReprIds = buildGeomReprs(w, axisCtx, bodyCtx, segPtIds, color, radius);
       const stratShape = prodShape(w, stratReprIds);
 
-      // Geological label stays available via the stratum PropertySet
-      // (GeolUnit / GeolSubUnit / GeologyCode); the element Name itself
-      // inherits the parent container (facility) name.
+      // Element name = parent container (facility) name as prefix + the
+      // geological unit. The geological suffix keeps interval names distinct
+      // so layer-by-name importers (e.g. BricsCAD) assign one layer/colour
+      // per unit; the geological label also remains in the stratum PropertySet.
+      const geoLabel = iv.unit || iv.subUnit || iv.geologyCode || 'Stratum';
+      const stratName = `${facilityName} - ${geoLabel}`;
       const stratTag = `${bh.id}@${iv.from}-${iv.to}`;
       const stratId = createIntervalElement(w, intervalIfcClass, {
-        name: facilityName,
+        name: stratName,
         description: iv.description || '',
         placementId: stratPl,
         shapeId: stratShape,
