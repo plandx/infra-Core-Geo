@@ -120,8 +120,12 @@ function applyStyledItem(w, geomItemId, styleId) {
 function applySolidStyle(w, geomItemId, color) {
   const { r, g, b } = color;
   const colorId = w.add('IFCCOLOURRGB', `$,${num(r)},${num(g)},${num(b)}`);
+  // IfcSurfaceStyleRendering has 9 attributes; the trailing ReflectanceMethod
+  // is mandatory. SurfaceColour AND DiffuseColour are both set to the colour:
+  // IFC-native viewers render from SurfaceColour, AutoCAD/BricsCAD from
+  // DiffuseColour. Transparency 0. = opaque.
   const renderingId = w.add('IFCSURFACESTYLERENDERING',
-    `${ref(colorId)},$,$,$,$,$,$,.NOTDEFINED.`);
+    `${ref(colorId)},0.,${ref(colorId)},$,$,$,$,$,.NOTDEFINED.`);
   const surfStyleId = w.add('IFCSURFACESTYLE', `$,.BOTH.,(${ref(renderingId)})`);
   applyStyledItem(w, geomItemId, surfStyleId);
 }
